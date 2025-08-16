@@ -1,5 +1,5 @@
 {
-  "model_name": "Qwen/Qwen2-VL-2B-Instruct",
+  "model_name": "Qwen/Qwen2-VL-2B-Instruct_Test",
   "device": "cuda",
   "lr": 0.001,
   "weight_decay": 0.0,

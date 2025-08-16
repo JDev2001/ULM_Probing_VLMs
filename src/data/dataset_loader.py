@@ -105,6 +105,6 @@ class DSLoader:
             keep_in_memory=False,
             desc="building categories",
         )
-        cols = ["url", "caption_pos", "caption_neg", "pos_categories", "neg_categories"]
+        cols = ["url", "pos_categories", "neg_categories"]
         keep = [c for c in cols if c in ds3.column_names]
         return ds3.select_columns(keep)
