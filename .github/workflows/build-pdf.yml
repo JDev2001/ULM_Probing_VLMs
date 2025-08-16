@@ -1,0 +1,34 @@
+name: Build LaTeX document
+on:
+  push:
+    paths:
+      - report/**
+    branches:
+      - main
+permissions:
+  contents: write
+
+jobs:
+  build_latex:
+    runs-on: ubuntu-latest
+    steps:
+        - name: Set up Git repository
+          uses: actions/checkout@v3
+        - name: Compile LaTeX document
+          uses: xu-cheng/latex-action@v3
+          with:
+            root_file: report/report.tex
+            args: -cd -pdf -interaction=nonstopmode -halt-on-error
+        - name: Upload PDF file
+          uses: actions/upload-artifact@v4
+          with:
+            name: PDF
+            path: report/report.pdf
+        - name: Update README
+          run: |
+              cp report/report.pdf report.pdf
+              git config --local user.email "action@github.com"
+              git config --local user.name "GitHub Action"
+              git add .
+              git commit -am "Update README with latest PDF link"
+              git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "HEAD:${{ github.ref_name }}"

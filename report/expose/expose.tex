@@ -1,0 +1,40 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{hyperref}
+\usepackage{amsmath, amssymb}
+\usepackage{cite}
+\bibliographystyle{plain}
+
+\title{\textbf{Expose: Probing Small Vision-Language Models for Global and Local Semantic Representations}}
+\author{Tsun Wai Wong \and Jonathan Schwab}
+\date{}
+
+\begin{document}
+\maketitle
+\noindent
+This project investigates how small vision-language models (1--4B parameters) encode global semantics versus local semantics at the object level. Building on \cite{tao2024probingmultimodallargelanguage}, which showed that large models often store richer global information in intermediate layers while upper layers focus on token-level prediction, we examine whether such trends hold for recent compact models like Qwen2-VL, MiniCPM-V, Phi-4-mini, and Gemma-3. These models, attractive for computationally constrained applications, remain underexplored in terms of representational behavior.
+We construct two probing tasks on MS COCO, a dataset consisting of images and captions \cite{lin2014microsoft}: an image-text entailment setup for global semantics, where positive captions are original and negatives are semantically similar captions from other images, and an object recognition task for local semantics, where the model receives an image and a shuffled list of present objects and must decide whether that objects appears. For both, VLM parameters are frozen and layer-wise hidden states extracted. A lightweight classifier (logistic regression or small MLP) is trained to predict labels, revealing the distribution of task-relevant information across layers \cite{alain2018understanding}. Preprocessing aligns with model requirements: images are resized to match encoders, captions cleaned and transformed appropriately, and prompts adapted to each task. Accuracy is used for global evaluation, macro-F1 \cite{opitz2021macrof1} for local to account for category imbalance.
+We expect that intermediate layers in small VLMs will, like their larger counterparts, capture the richest global representations, while upper layers emphasize local or token-prediction cues, though new architectures may yield different patterns. The findings could guide architectural or training adjustments to preserve global meaning in resource-friendly multimodal systems.
+
+\begin{thebibliography}{1}
+\bibitem{tao2024probingmultimodallargelanguage}
+M.~Tao \emph{et~al.}, ``Probing Multimodal Large Language Models for Global and Local Semantic Representations,'' 2024. [Online]. Available: \url{https://arxiv.org/abs/2402.17304}
+\bibitem{lin2014microsoft}
+T.-Y. Lin, M. Maire, S.~J. Belongie, L.~D. Bourdev, R.~B. Girshick, J. Hays,
+P. Perona, D. Ramanan, P. Doll{\'a}r, and C.~L. Zitnick,
+``Microsoft COCO: Common Objects in Context,''
+\emph{CoRR}, vol. abs/1405.0312, 2014. [Online]. Available: \url{http://arxiv.org/abs/1405.0312}
+\bibitem{opitz2021macrof1}
+J.~Opitz and S.~Burst.
+\newblock Macro F1 and Macro F1.
+\newblock {\em arXiv preprint arXiv:1911.03347}, 2021.
+\newblock URL: \url{https://arxiv.org/abs/1911.03347}.
+\bibitem{alain2018understanding}
+G.~Alain and Y.~Bengio,
+\newblock ``Understanding intermediate layers using linear classifier probes,''
+\newblock \emph{arXiv preprint arXiv:1610.01644}, 2018.
+\end{thebibliography}
+\end{document}
