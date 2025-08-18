@@ -4,9 +4,10 @@ import time
 import math
 import torch
 from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
+from src.vllm.vllm import VLLM
 from qwen_vl_utils import process_vision_info
 
-class QwenVLProbe:
+class QwenVLProbe(VLLM):
     """
     Qwen2-VL wrapper that provides:
       - forward_with_hidden: single-sample generation + hidden states
@@ -29,50 +30,12 @@ class QwenVLProbe:
         self.d_model  = getattr(self.model.config, "hidden_size", None)
 
     @torch.no_grad()
-    def forward_with_hidden(
-        self,
-        messages: List[dict],
-        max_new_tokens: int = 64,
-    ) -> Tuple[str, List[torch.Tensor]]:
-        """Single-sample forward pass that returns generated text and per-layer token embeddings."""
-        chat_text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        image_inputs, video_inputs = process_vision_info(messages)
-
-        inputs = self.processor(
-            text=[chat_text],
-            images=[image_inputs] if image_inputs is not None else None,
-            videos=[video_inputs] if video_inputs is not None else None,
-            padding=True,
-            return_tensors="pt"
-        ).to(self.device if self.device else "cpu")
-
-        forward_out = self.model(**inputs, output_hidden_states=True, return_dict=True)
-        hidden_states = [t.detach().to(torch.float32).cpu() for t in forward_out.hidden_states]  # (emb, L1, ..., LN)
-
-        gen_out = self.model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            return_dict_in_generate=True
-        )
-        gen_ids = gen_out.sequences
-        gen_trimmed = [o[len(i):] for i, o in zip(inputs.input_ids, gen_ids)]
-        output_text = self.processor.batch_decode(
-            gen_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
-        )[0]
-
-        all_tokens_per_layer = [t[0] for t in hidden_states]  # list of [S, H]
-        return output_text, all_tokens_per_layer
-
-    @torch.no_grad()
     def get_hidden_states_batched(
         self,
         examples: List[Dict],
         output_layer: str,                           # "CLS" | "mean" | "max" | "token_index_X" | default(decoder last token)
-        dataset_type: str = "",
         return_layer: Optional[int] = None,
-        progress_callback: Optional[callable] = None,
         batch_size: int = 8,
-        device: Union[str, torch.device] = "cuda",
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Extract hidden states in batches, mirroring the reference function's return format:
@@ -87,15 +50,7 @@ class QwenVLProbe:
           - {"text": "...", "label": int}      # text-only convenience
         """
         # Use provided device for tensors
-        dev = device if device is not None else (self.device if self.device else "cpu")
-
-        # Helper: invoke progress callback safely
-        def _prog(p: float, title: str, detail: str):
-            if progress_callback is not None:
-                try:
-                    progress_callback(p, title, detail)
-                except Exception:
-                    pass
+        dev = self.device
 
         # Basic model stats for consistency with the reference
         n_layers = self.n_layers if self.n_layers is not None else 0
@@ -103,8 +58,6 @@ class QwenVLProbe:
 
         # Batching meta
         num_batches = math.ceil(len(examples) / batch_size)
-        _prog(0.0, f"Processing {len(examples)} examples in {num_batches} batches",
-              f"Using batch size of {batch_size}")
 
         all_hidden_states: List[torch.Tensor] = []
         all_labels: List[int] = []
@@ -114,9 +67,6 @@ class QwenVLProbe:
             batch_end = min(batch_start + batch_size, len(examples))
             batch = examples[batch_start:batch_end]
             batch_idx = batch_start // batch_size + 1
-            _prog(batch_start / max(1, len(examples)),
-                  f"Processing {dataset_type} batch {batch_idx}/{num_batches}",
-                  f"Examples {batch_start+1}-{batch_end} of {len(examples)}")
 
             # Collect labels
             batch_labels = [int(ex["label"]) for ex in batch]
@@ -214,10 +164,6 @@ class QwenVLProbe:
         # Stack across all examples
         all_hidden_states_tensor = torch.stack(all_hidden_states, dim=0).to(dev)  # [N, L, H]
         all_labels_tensor = torch.tensor(all_labels, device=dev)
-
-        _prog(1.0,
-              f"Completed processing all {dataset_type} {len(examples)} examples",
-              f"Created tensor of shape {tuple(all_hidden_states_tensor.shape)}")
 
         # Return according to API
         if return_layer is not None:

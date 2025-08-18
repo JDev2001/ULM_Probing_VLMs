@@ -1,41 +1,35 @@
-"""
-Interface for VLLMs
-"""
-from typing import Dict, List, Tuple
+# Inspired by: https://github.com/jammastergirish/LLMProbe
+from typing import Dict, List, Optional, Tuple, Union
+import time
+import math
 import torch
+from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
+from qwen_vl_utils import process_vision_info
 
 """
 Abstract base class for VLLMs
 """
 class VLLM():
-    def load_model(self, model_name):
-        """
-        Load a model by its name.
 
-        Args:
-            model_name (str): The name of the model to load.
 
-        Returns:
-            bool: True if the model was loaded successfully, False otherwise.
-        """
-        raise NotImplementedError("This method should be overridden by subclasses.")
-
-    def forward_with_hidden(
+    @torch.no_grad()
+    def get_hidden_states_batched(
         self,
-        messages: List[dict],
-        max_new_tokens: int = 64,
-    ) ->  Tuple[str, Dict[str, List[torch.Tensor]]]:
+        examples: List[Dict],
+        output_layer: str,                           # "CLS" | "mean" | "max" | "token_index_X" | default(decoder last token)
+        return_layer: Optional[int] = None,
+        batch_size: int = 8,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Run the model and collect hidden states via the standard HF output.
+        Extract hidden states in batches, mirroring the reference function's return format:
+          - If return_layer is None:
+              returns (all_hidden_states [N, num_layers(+1), H], all_labels [N])
+              where the first layer corresponds to embeddings.
+          - If return_layer is not None:
+              returns (layer_hidden_states [N, H], all_labels [N])
 
-        Args:
-            messages: Chat template messages (with "image"/"text" entries).
-            max_new_tokens: For generation mode.
-            use_generate: If True, also run model.generate() to produce text (hidden states are taken from the forward pass).
-            capture_attention_and_mlp: Unused (kept for compatibility).
-
-        Returns:
-            Tuple[str, Dict[str, List[torch.Tensor]]]
-            - output_text: The generated text output from the model.
-            - hidden_states: {"decoder.hidden_states": [T0, T1, ..., TL]} where T0 is embeddings and TL is the last layer output.
+        Supported example formats:
+          - {"messages": [...], "label": int}  # multimodal (preferred)
+          - {"text": "...", "label": int}      # text-only convenience
         """
+        raise NotImplementedError("This method should be implemented by subclasses")

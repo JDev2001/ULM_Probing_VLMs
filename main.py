@@ -1,11 +1,17 @@
 from ast import List
 from src.vllm.qwen import QwenVLProbe
-from src.vllm.load_model import get_hidden_states_batched, load_model_and_tokenizer
+
     # create simple hf da
 from datasets import Dataset
+
+from src.vllm.automodel import AutoModelVLM
+
+
 def main():
 
-    probe = QwenVLProbe(model_name="Qwen/Qwen2-VL-2B-Instruct", device="cpu")
+    #probe = QwenVLProbe(model_name="Qwen/Qwen2-VL-2B-Instruct", device="cpu")
+    # probe = AutoModelVLM(model_name="google/gemma-3-4b-it",device="cpu")
+    # probe = AutoModelVLM(model_name="microsoft/Phi-4-mini-instruct", device="cpu")
 
     messages = [
         {
@@ -20,18 +26,16 @@ def main():
         }
     ]
     messages = [
-        {"label": 0, "text":"Hallo"}
+        {"label": 0, "messages": messages}
     ]
 
     hidden_out, label_out = probe.get_hidden_states_batched(
         examples=messages,
         output_layer="CLS",
-        dataset_type="test",
         return_layer=None,
-        progress_callback=None,
-        batch_size=8,
-        device="cpu"
+        batch_size=8
     )
+    print(hidden_out.shape)  # should be (batch_size, n_layers, d_model)
     # output_text[:, 8, :] select layer 8
 
 if __name__ == "__main__":
