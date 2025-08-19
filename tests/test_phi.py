@@ -1,16 +1,8 @@
-from ast import List
-from src.vllm.qwen import QwenVLProbe
-
-    # create simple hf da
-from datasets import Dataset
-
 from src.vllm.automodel import AutoModelVLM
 
 
-def main():
+def test_phi():
 
-    #probe = QwenVLProbe(model_name="Qwen/Qwen2-VL-2B-Instruct", device="cpu")
-    #probe = AutoModelVLM(model_name="google/gemma-3-4b-it",device="cpu")
     probe = AutoModelVLM(model_name="microsoft/Phi-4-multimodal-instruct", device="cpu")
 
     messages = [
@@ -35,8 +27,4 @@ def main():
         return_layer=None,
         batch_size=8
     )
-    print(hidden_out.shape)  # should be (batch_size, n_layers, d_model)
-    # output_text[:, 8, :] select layer 8
-
-if __name__ == "__main__":
-    main()
+    assert hidden_out.shape[0]==1

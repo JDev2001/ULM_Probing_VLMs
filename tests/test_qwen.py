@@ -1,6 +1,5 @@
 from ast import List
 from src.vllm.qwen import QwenVLProbe
-from src.vllm.load_model import get_hidden_states_batched, load_model_and_tokenizer
 
 
 def test_qwen():

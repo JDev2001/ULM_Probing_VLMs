@@ -8,3 +8,23 @@
 - Install Dependencies: ```uv sync```
 - Install Pre-Commit Hooks: ``` uv run pre-commit install```
 - Run files: ```uv run main.py```
+- For Cuda Support: ```uv pip install torch torchvision --force-reinstall --index-url https://download.pytorch.org/whl/cu128``` (https://pytorch.org/get-started/locally/)
+- Access Gemma (Preview) Mode:
+    - Create token at: https://huggingface.co/settings/tokens
+    - ```huggingface-cli login```
+
+## Description
+This projects implements a probing pipeline with the mscoco-Dataset for different VLMs.
+
+### Pipeline
+- Dataset Loading
+- Model Forward Pass
+- Hidden-Layer Feature Extraction
+- Train Probe Classifiers
+- Evaluate & Visualize
+
+### Currently Supported Models are
+- "Qwen/Qwen2-VL-2B-Instruct"
+- "google/gemma-3-4b-it",device="cpu"
+- "microsoft/Phi-4-multimodal-instruct"
+- In theory all models with AutoProcessor & AutoModelForCausalLM sould be supported (not guaranteed)

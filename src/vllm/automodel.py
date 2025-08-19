@@ -8,6 +8,8 @@ import torch
 from transformers import AutoModelForCausalLM, AutoProcessor
 from src.vllm.vllm import VLLM
 from qwen_vl_utils import process_vision_info
+from transformers import AutoConfig, AutoModelForCausalLM
+
 
 
 class AutoModelVLM(VLLM):
@@ -25,25 +27,31 @@ class AutoModelVLM(VLLM):
 
     def __init__(
         self,
-        model_name: str = "microsoft/Phi-4-mini-instruct",
+        model_name: str = "microsoft/Phi-4-multimodal-instruct",
         device: Union[str, torch.device] = "cuda",
         device_map: Union[str, Dict[str, int]] = "auto",
-        torch_dtype: Union[str, torch.dtype] = "auto",
-        trust_remote_code: bool = True,
+        torch_dtype: Union[str, torch.dtype] = "auto"
     ):
         # Device bookkeeping
         self.device = device
+
+        self.model_name = model_name
+
+        config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
+        config.attn_implementation = "sdpa" # disable flash attention
 
         # Load model and processor via Auto* to stay generic
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
             device_map=device_map,
             torch_dtype=torch_dtype,
-            trust_remote_code=trust_remote_code,
+            trust_remote_code=True,
+            attn_implementation="sdpa", #disable flash attention
+            config=config
         )
         self.processor = AutoProcessor.from_pretrained(
             model_name,
-            trust_remote_code=trust_remote_code,
+            trust_remote_code=True
         )
 
         # Basic model stats for logging/shape checks
@@ -62,7 +70,8 @@ class AutoModelVLM(VLLM):
                 return self.processor.apply_chat_template(
                     messages, tokenize=False, add_generation_prompt=False
                 )
-            except Exception:
+            except Exception as e:
+                print("Error applying chat template:", e)
                 pass
 
         # Fallback: minimal, neutral concatenation
@@ -72,6 +81,32 @@ class AutoModelVLM(VLLM):
             content = m.get("content", "")
             parts.append(f"{role}: {content}")
         return "\n".join(parts)
+
+    def adapt_messages_to_phi(self,messages):
+        new_messages = []
+        images = []
+        img_counter = 1
+
+        for msg in messages:
+            parts = []
+            if isinstance(msg["content"], list):
+                for seg in msg["content"]:
+                    if seg["type"] == "text":
+                        parts.append(seg["text"])
+                    elif seg["type"] == "image":
+                        parts.append(f"<|image_{img_counter}|>")
+                        images.append(seg["image"])
+                        img_counter += 1
+            elif isinstance(msg["content"], str):
+                parts.append(msg["content"])
+
+            new_messages.append({
+                "role": msg["role"],
+                "content": " ".join(parts).strip()
+            })
+
+        return new_messages, images
+
 
     @torch.no_grad()
     def get_hidden_states_batched(
@@ -116,7 +151,11 @@ class AutoModelVLM(VLLM):
             for ex in batch:
                 if "messages" in ex and isinstance(ex["messages"], list):
                     msgs = ex["messages"]
-                    chat_text = self._apply_chat_template_safe(msgs)
+                    if self.model_name.lower().__contains__("phi-4"):
+                        adapted, img = self.adapt_messages_to_phi(msgs)
+                        chat_text = self._apply_chat_template_safe(adapted)
+                    else:
+                        chat_text = self._apply_chat_template_safe(msgs)
                     imgs, vids = process_vision_info(msgs)
                     batch_texts.append(chat_text)
                     batch_images.append(imgs if imgs is not None else [])
@@ -139,6 +178,8 @@ class AutoModelVLM(VLLM):
             )
             if any_images:
                 processor_kwargs["images"] = batch_images
+                if self.model_name.lower().__contains__("phi-4"):
+                    processor_kwargs["images"] = batch_images[0]  # phi-4 expects list no batch
             if any_videos:
                 processor_kwargs["videos"] = batch_videos
 
