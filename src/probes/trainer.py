@@ -12,39 +12,120 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 
+
 def accuracy_from_logits(logits: torch.Tensor, targets: torch.Tensor) -> float:
-    """Compute accuracy given raw logits and integer targets."""
+    """Compute Top-1 accuracy given raw logits and integer targets."""
     preds = logits.argmax(dim=-1)
     correct = (preds == targets).sum().item()
     total = targets.numel()
     return correct / total if total > 0 else 0.0
 
 
-def _safe_div(n: float, d: float) -> float:
-    """Numerically safe division."""
-    return float(n) / float(d) if d != 0 else 0.0
+def _safe_div(n: torch.Tensor, d: torch.Tensor) -> torch.Tensor:
+    """Numerically safe elementwise division (tensor aware)."""
+    d = torch.where(d == 0, torch.ones_like(d), d)
+    return n / d
 
 
-def _batch_micro_counts(logits: torch.Tensor, targets: torch.Tensor) -> Tuple[int, int, int, int, int]:
+@torch.no_grad()
+def batch_confusion_counts(logits: torch.Tensor, targets: torch.Tensor) -> Dict[str, torch.Tensor]:
     """
-    Compute micro-averaged TP, FP, FN counts for a single-label classification batch.
-    For multiclass, treat it as one-vs-rest and aggregate (micro).
-    TN is derived at epoch end via: TN = num_classes * N - TP - FP - FN.
-
-    Returns:
-        tp, fp, fn, total_samples, num_classes
+    Compute per-class TP/FP/FN for single-label classification (binary or multiclass) on a batch.
+    Returns dict with:
+      - tp, fp, fn: tensors of shape [C]
+      - N: scalar total samples in batch
+      - C: scalar number of classes
+    TN is derived later per class via: TN_k = N - TP_k - FP_k - FN_k.
     """
-    with torch.no_grad():
-        preds = logits.argmax(dim=-1)
-        correct = (preds == targets).sum().item()
-        n = targets.numel()
-        # In single-label multiclass, across one-vs-rest indicators:
-        # total predicted positives = n, total true positives (positives in ground truth) = n.
-        tp = int(correct)
-        fp = int(n - tp)
-        fn = int(n - tp)
-        c = int(logits.shape[-1])
-    return tp, fp, fn, n, c
+    preds = logits.argmax(dim=-1)       # [B]
+    c = int(logits.shape[-1])
+    n = int(targets.numel())
+
+    tp = torch.zeros(c, dtype=torch.long)
+    fp = torch.zeros(c, dtype=torch.long)
+    fn = torch.zeros(c, dtype=torch.long)
+
+    for k in range(c):
+        pred_k = (preds == k)
+        true_k = (targets == k)
+        tp[k] = (pred_k & true_k).sum()
+        fp[k] = (pred_k & ~true_k).sum()
+        fn[k] = (~pred_k & true_k).sum()
+
+    return {"tp": tp, "fp": fp, "fn": fn, "N": torch.tensor(n), "C": torch.tensor(c)}
+
+
+def finalize_metrics(
+    agg_tp: torch.Tensor,
+    agg_fp: torch.Tensor,
+    agg_fn: torch.Tensor,
+    total_N: int,
+    num_classes: int,
+    average: str = "auto",  # "auto" | "micro" | "macro" | "weighted" | "binary"
+) -> Tuple[float, float, float, int]:
+    """
+    Compute (precision, recall, f1, tn_total) from accumulated per-class counts.
+    - micro: sums counts across classes before ratios
+    - macro: mean of per-class metrics
+    - weighted: support-weighted mean of per-class metrics
+    - binary: classic binary view (equivalent to micro for C=2; TN summed over both classes)
+    - auto: "binary" if C==2 else "macro"
+    """
+    tp = agg_tp.to(torch.float64)
+    fp = agg_fp.to(torch.float64)
+    fn = agg_fn.to(torch.float64)
+
+    tn_per_class = total_N - tp - fp - fn
+    support = tp + fn
+
+    # Resolve averaging strategy
+    if average == "auto":
+        average = "binary" if num_classes == 2 else "macro"
+
+    print(f"Finalizing metrics with average={average}, num_classes={num_classes}")
+
+    if average in ("micro", "binary"):
+        TP = tp.sum()
+        FP = fp.sum()
+        FN = fn.sum()
+        precision = float(_safe_div(TP, TP + FP))
+        recall = float(_safe_div(TP, TP + FN))
+        f1 = float(0.0 if (precision + recall) == 0.0 else (2 * precision * recall) / (precision + recall))
+        tn_total = int(tn_per_class.sum().item())
+        return precision, recall, f1, tn_total
+
+    # Per-class metrics
+    prec_c = _safe_div(tp, tp + fp)    # [C]
+    rec_c  = _safe_div(tp, tp + fn)    # [C]
+    denom  = prec_c + rec_c
+    f1_c   = torch.where(denom == 0, torch.zeros_like(denom), 2 * prec_c * rec_c / denom)
+
+    if average == "macro":
+        precision = float(prec_c.mean())
+        recall = float(rec_c.mean())
+        f1 = float(f1_c.mean())
+        tn_total = int(tn_per_class.sum().item())
+        return precision, recall, f1, tn_total
+
+    if average == "weighted":
+        total_support = support.sum()
+        if total_support.item() == 0:
+            weights = torch.zeros_like(support)
+        else:
+            weights = support / total_support
+        precision = float((prec_c * weights).sum())
+        recall = float((rec_c * weights).sum())
+        f1 = float((f1_c * weights).sum())
+        tn_total = int(tn_per_class.sum().item())
+        return precision, recall, f1, tn_total
+
+    # Fallback to micro
+    TP = tp.sum(); FP = fp.sum(); FN = fn.sum()
+    precision = float(_safe_div(TP, TP + FP))
+    recall = float(_safe_div(TP, TP + FN))
+    f1 = float(0.0 if (precision + recall) == 0.0 else (2 * precision * recall) / (precision + recall))
+    tn_total = int(tn_per_class.sum().item())
+    return precision, recall, f1, tn_total
 
 
 class Trainer:
@@ -62,7 +143,7 @@ class Trainer:
         self.config = config
 
         # Prepare run directory
-        self.run_dir = f"../artifacts/{config.model_name}_run"
+        self.run_dir = f"artifacts/{config.model_name}_run"
         os.makedirs(self.run_dir, exist_ok=True)
 
         # Prepare logger
@@ -96,9 +177,9 @@ class Trainer:
             running_acc = 0.0
             count = 0
 
-            # Epoch-level micro counts
-            ep_tp = ep_fp = ep_fn = 0
-            ep_n = 0
+            # Epoch-level accumulators (per-class)
+            ep_tp = ep_fp = ep_fn = None
+            ep_N = 0
             ep_num_classes = None
 
             for i, batch in enumerate(train_loader, start=1):
@@ -115,22 +196,27 @@ class Trainer:
                     self.scaler.update()
                     self.optimizer.zero_grad(set_to_none=True)
 
-                # Update running metrics
+                # Running metrics
                 step_loss = loss.detach().item() * self.config.grad_accum_steps
                 step_acc = accuracy_from_logits(logits.detach(), targets)
                 running_loss += step_loss
                 running_acc += step_acc
                 count += 1
 
-                # Update epoch micro counts
-                tp, fp, fn, n, c = _batch_micro_counts(logits.detach(), targets)
-                ep_tp += tp
-                ep_fp += fp
-                ep_fn += fn
-                ep_n += n
-                ep_num_classes = ep_num_classes or c  # set once
+                # Update epoch per-class counts
+                cnt = batch_confusion_counts(logits.detach(), targets)
+                if ep_tp is None:
+                    ep_tp = cnt["tp"].clone()
+                    ep_fp = cnt["fp"].clone()
+                    ep_fn = cnt["fn"].clone()
+                else:
+                    ep_tp += cnt["tp"]
+                    ep_fp += cnt["fp"]
+                    ep_fn += cnt["fn"]
+                ep_N += int(cnt["N"])
+                ep_num_classes = ep_num_classes or int(cnt["C"])
 
-                # Logging
+                # Step logging (optional granularity)
                 self.global_step += 1
                 if self.global_step % self.config.log_interval == 0:
                     self._log({
@@ -142,14 +228,15 @@ class Trainer:
                         "lr": self._get_lr(),
                     })
 
-            # Epoch-end logging (averages + micro metrics over the training batches seen this epoch)
-            if count > 0:
-                precision, recall, f1, tn = self._finalize_micro_metrics(
-                    tp=ep_tp,
-                    fp=ep_fp,
-                    fn=ep_fn,
-                    total_samples=ep_n,
+            # Epoch-end logging on training stream
+            if count > 0 and ep_tp is not None:
+                precision, recall, f1, tn = finalize_metrics(
+                    agg_tp=ep_tp,
+                    agg_fp=ep_fp,
+                    agg_fn=ep_fn,
+                    total_N=ep_N,
                     num_classes=ep_num_classes or 1,
+                    average="auto",  # binary if C==2 else macro
                 )
                 self._log({
                     "epoch": epoch,
@@ -161,13 +248,13 @@ class Trainer:
                     "precision": precision,
                     "recall": recall,
                     "f1": f1,
-                    "tp": ep_tp,
-                    "fp": ep_fp,
-                    "fn": ep_fn,
+                    "tp": int(ep_tp.sum().item()),
+                    "fp": int(ep_fp.sum().item()),
+                    "fn": int(ep_fn.sum().item()),
                     "tn": tn,
                 })
 
-            # Explicit evaluation on the training set (probing) at epoch end
+            # Explicit evaluation on the training set (clean eval mode)
             train_eval = self.evaluate(train_loader)
             self._log({
                 "epoch": epoch,
@@ -192,7 +279,7 @@ class Trainer:
 
     @torch.inference_mode()
     def evaluate(self, loader: DataLoader) -> Dict[str, float]:
-        """Evaluate on a dataloader and return metrics (loss, accuracy, precision, recall, f1, tp, fp, fn, tn)."""
+        """Evaluate on a dataloader and return metrics."""
         device = self.config.device
         self.model.eval()
 
@@ -200,9 +287,8 @@ class Trainer:
         total_acc = 0.0
         total_batches = 0
 
-        # Micro counts
-        ep_tp = ep_fp = ep_fn = 0
-        ep_n = 0
+        ep_tp = ep_fp = ep_fn = None
+        ep_N = 0
         ep_num_classes = None
 
         for batch in loader:
@@ -214,16 +300,21 @@ class Trainer:
             total_acc += accuracy_from_logits(logits, targets)
             total_batches += 1
 
-            tp, fp, fn, n, c = _batch_micro_counts(logits, targets)
-            ep_tp += tp
-            ep_fp += fp
-            ep_fn += fn
-            ep_n += n
-            ep_num_classes = ep_num_classes or c
+            cnt = batch_confusion_counts(logits, targets)
+            if ep_tp is None:
+                ep_tp = cnt["tp"].clone()
+                ep_fp = cnt["fp"].clone()
+                ep_fn = cnt["fn"].clone()
+            else:
+                ep_tp += cnt["tp"]
+                ep_fp += cnt["fp"]
+                ep_fn += cnt["fn"]
+            ep_N += int(cnt["N"])
+            ep_num_classes = ep_num_classes or int(cnt["C"])
 
         self.model.train()
 
-        if total_batches == 0:
+        if total_batches == 0 or ep_tp is None:
             return {
                 "loss": 0.0,
                 "accuracy": 0.0,
@@ -236,12 +327,13 @@ class Trainer:
                 "tn": 0,
             }
 
-        precision, recall, f1, tn = self._finalize_micro_metrics(
-            tp=ep_tp,
-            fp=ep_fp,
-            fn=ep_fn,
-            total_samples=ep_n,
+        precision, recall, f1, tn = finalize_metrics(
+            agg_tp=ep_tp,
+            agg_fp=ep_fp,
+            agg_fn=ep_fn,
+            total_N=ep_N,
             num_classes=ep_num_classes or 1,
+            average="auto",  # binary if C==2 else macro
         )
 
         return {
@@ -250,9 +342,9 @@ class Trainer:
             "precision": precision,
             "recall": recall,
             "f1": f1,
-            "tp": ep_tp,
-            "fp": ep_fp,
-            "fn": ep_fn,
+            "tp": int(ep_tp.sum().item()),
+            "fp": int(ep_fp.sum().item()),
+            "fn": int(ep_fn.sum().item()),
             "tn": tn,
         }
 
@@ -265,9 +357,7 @@ class Trainer:
 
     def _unpack_batch(self, batch: Any, device: str):
         """
-        Expects a batch like (inputs, targets) where:
-        - inputs: torch.Tensor of shape [B, ...]
-        - targets: torch.LongTensor of shape [B]
+        Expects a batch like (inputs, targets) or {"inputs":..., "labels":...}.
         Adjust here if your dataset uses dicts.
         """
         if isinstance(batch, (list, tuple)) and len(batch) >= 2:
@@ -276,7 +366,6 @@ class Trainer:
             inputs, targets = batch["inputs"], batch["labels"]
         else:
             raise ValueError("Unsupported batch format.")
-
         return inputs.to(device), targets.to(device)
 
     def _init_log(self):
@@ -298,7 +387,6 @@ class Trainer:
             "epoch", "step", "split", "loss", "accuracy", "lr",
             "precision", "recall", "f1", "tp", "fp", "fn", "tn"
         ]
-        # Ensure all keys exist (keep CSV schema stable).
         filled = {}
         for k in keys:
             if k in row:
@@ -318,22 +406,3 @@ class Trainer:
     def _get_lr(self) -> float:
         """Return current learning rate (assumes single param group)."""
         return self.optimizer.param_groups[0]["lr"] if self.optimizer.param_groups else 0.0
-
-    def _finalize_micro_metrics(
-        self,
-        tp: int,
-        fp: int,
-        fn: int,
-        total_samples: int,
-        num_classes: int,
-    ) -> Tuple[float, float, float, int]:
-        """
-        Compute precision/recall/F1 and TN from micro counts.
-        For multiclass (single-label), TN is derived as:
-        TN = num_classes * total_samples - TP - FP - FN
-        """
-        precision = _safe_div(tp, tp + fp)
-        recall = _safe_div(tp, tp + fn)
-        f1 = _safe_div(2 * precision * recall, precision + recall) if (precision + recall) > 0 else 0.0
-        tn_total = int(num_classes * total_samples - tp - fp - fn)
-        return precision, recall, f1, tn_total

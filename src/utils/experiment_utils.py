@@ -2,6 +2,8 @@ import importlib
 import math
 import numpy as np
 import os, sys
+
+from pyparsing import col
 os.environ["PYTHONPATH"] = "../"
 sys.path.insert(0, "../")
 
@@ -50,11 +52,8 @@ def get_repr(model,text,img):
         examples=[{"label":0, "messages":messages}],
         # output_layer="last_non_padding",
         output_layer="mean",
-        dataset_type="test",
         return_layer=None,
-        progress_callback=None,
         batch_size=8,
-        device=device,
     )
     return hidden_out, label_out
 
@@ -92,7 +91,8 @@ def train_probe(layer_repr, labels,name):
     trainer.fit(train_loader, None)
 
 def list_subfolders(directory):
-    return [str(p.resolve()) for p in Path(directory).rglob('*') if p.is_dir()]
+    directory = Path(directory)
+    return [p for p in directory.rglob("*") if p.is_dir()]
 
 def create_plots(dir_path, save_path):
     """
@@ -105,7 +105,10 @@ def create_plots(dir_path, save_path):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
+    save_path = Path(save_path)
+
     dir_path = Path(dir_path)
+
 
     losses, accs, precs, recalls, f1s = [], [], [], [], []
     tps, fps, fns, tns = [], [], [], []
@@ -133,7 +136,13 @@ def create_plots(dir_path, save_path):
         row = df_split.iloc[-1]
 
         def get(col, default=float("nan")):
-            return row[col] if col in df_split.columns else default
+            if col in df_split.columns:
+                try:
+                    return float(row[col])
+                except ValueError:
+                    return default
+            return default
+
 
         losses.append(get("loss"))
         accs.append(get("accuracy"))
@@ -153,7 +162,7 @@ def create_plots(dir_path, save_path):
         return
 
     x = list(range(len(layer_names)))
-    xticks_labels = layer_names if all(layer_names) else [str(i) for i in x]
+    xticks_labels = [str(i) for i in x]
 
     # Loss per layer
     plt.figure(figsize=(10, 4))
@@ -169,17 +178,11 @@ def create_plots(dir_path, save_path):
     # Metrics (accuracy, precision, recall, f1) per layer
     plt.figure(figsize=(10, 4))
 
-    def has_finite(vals):
-        return any(isinstance(v, (int, float)) and not math.isnan(v) for v in vals)
 
-    if has_finite(accs):
-        plt.plot(x, accs, marker='o', label="Accuracy")
-    if has_finite(precs):
-        plt.plot(x, precs, marker='o', label="Precision")
-    if has_finite(recalls):
-        plt.plot(x, recalls, marker='o', label="Recall")
-    if has_finite(f1s):
-        plt.plot(x, f1s, marker='o', label="F1")
+    plt.plot(x, accs, marker='o', label="Accuracy")
+    plt.plot(x, precs, marker='o', label="Precision")
+    plt.plot(x, recalls, marker='o', label="Recall")
+    plt.plot(x, f1s, marker='o', label="F1")
 
     plt.xticks(x, xticks_labels, rotation=45, ha="right")
     plt.xlabel("Layer")
