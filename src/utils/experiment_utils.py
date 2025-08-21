@@ -61,17 +61,21 @@ def get_repr_for_layer(hidden_out, layer_num):
     return hidden_out[:, layer_num, :]
 
 
-def train_probe(layer_repr, labels,name):
+def train_probe(layer_repr_train, labels_train,layer_repr_eval,labels_eval,name):
 
-    X = torch.stack([r.squeeze(0) for r in layer_repr]).to(torch.float32)
-    y = torch.tensor(labels, dtype=torch.long)
+    X_train = torch.stack([r.squeeze(0) for r in layer_repr_train]).to(torch.float32)
+    y_train = torch.tensor(labels_train, dtype=torch.long)
 
-    dataset = TensorDataset(X, y)
+    X_eval = torch.stack([r.squeeze(0) for r in layer_repr_eval]).to(torch.float32)
+    y_eval = torch.tensor(labels_eval, dtype=torch.long)
+
+    dataset_train = TensorDataset(X_train, y_train)
+    dataset_eval = TensorDataset(X_eval, y_eval)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     num_labels = 2
 
-    emb_dim = layer_repr[0].shape[1]
+    emb_dim = layer_repr_train[0].shape[1]
     model_head, criterion, optimizer = build_classifier(emb_dim, num_labels, device, lr=1e-3, dropout=0.1)
 
     config = RunConfig(
@@ -85,16 +89,17 @@ def train_probe(layer_repr, labels,name):
     )
 
 
-    train_loader = DataLoader(dataset, batch_size=16, shuffle=True)
+    train_loader = DataLoader(dataset_train,  batch_size=16, shuffle=True)
+    eval_loader = DataLoader(dataset_eval, batch_size=16, shuffle=False)
 
     trainer = Trainer(model_head, criterion, optimizer, config)
-    trainer.fit(train_loader, None)
+    trainer.fit(train_loader, eval_loader)
 
 def list_subfolders(directory):
     directory = Path(directory)
     return [p for p in directory.rglob("*") if p.is_dir()]
 
-def create_plots(dir_path, save_path):
+def create_plots(dir_path, save_path, split="val_epoch"):
     """
     Read per-subfolder training_log.csv files, pick the last row for the given split,
     and plot:
@@ -129,7 +134,7 @@ def create_plots(dir_path, save_path):
         if "split" not in df.columns:
             continue
 
-        df_split = df[df["split"] == 'train_epoch']
+        df_split = df[df["split"] == split]
         if df_split.empty:
             continue
 

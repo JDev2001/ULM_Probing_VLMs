@@ -4,9 +4,10 @@ from src.utils.experiment_utils import create_plots
 
 
 models = [
-    "exp1/",
-    "exp2/",
-    "exp3/"
+    # "exp1/",
+    # "exp2/",
+    # "exp3/"
+    "test/"
 ]
 
 

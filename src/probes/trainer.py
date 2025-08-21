@@ -5,12 +5,22 @@ from dataclasses import asdict
 from typing import Optional, Dict, Any, Tuple
 
 from tqdm import tqdm
-
-from src.configs.ProbeRunConfig import RunConfig
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
+from dataclasses import dataclass
+
+@dataclass
+class RunConfig:
+    model_name: str = "default_model"
+    device: str = "cpu"
+    epochs: int = 10
+    mixed_precision: bool = False
+    grad_accum_steps: int = 1
+    log_interval: int = 10
+    lr: float = 1e-3
+    dropout: float = 0.1
 
 def accuracy_from_logits(logits: torch.Tensor, targets: torch.Tensor) -> float:
     """Compute Top-1 accuracy given raw logits and integer targets."""
@@ -37,7 +47,7 @@ def batch_confusion_counts(logits: torch.Tensor, targets: torch.Tensor) -> Dict[
       - C: scalar number of classes
     TN is derived later per class via: TN_k = N - TP_k - FP_k - FN_k.
     """
-    preds = logits.argmax(dim=-1)       # [B]
+    preds = logits.argmax(dim=-1)      # [B]
     c = int(logits.shape[-1])
     n = int(targets.numel())
 
@@ -83,9 +93,6 @@ def finalize_metrics(
 
     print(f"Finalizing metrics with average='{average}', num_classes={num_classes}")
 
-    # =================================================================================
-    # FIX: START of corrected logic for binary classification
-    # =================================================================================
     if average == "binary":
         if num_classes != 2:
             # Fallback for safety, although 'auto' logic prevents this.
@@ -103,23 +110,20 @@ def finalize_metrics(
             recall = float(_safe_div(TP, TP + FN))
             f1_denom = precision + recall
             f1 = float(0.0 if f1_denom == 0.0 else (2 * precision * recall) / f1_denom)
-            
+
             return precision, recall, f1, int(TP.item()), int(FP.item()), int(FN.item()), int(TN.item())
-    # =================================================================================
-    # FIX: END of corrected logic
-    # =================================================================================
 
     if average == "micro":
         TP = tp.sum()
         FP = fp.sum()
         FN = fn.sum()
         TN = (total_N - tp - fp - fn).sum() # Sum of TNs for all classes
-        
+
         precision = float(_safe_div(TP, TP + FP))
         recall = float(_safe_div(TP, TP + FN))
         f1_denom = precision + recall
         f1 = float(0.0 if f1_denom == 0.0 else (2 * precision * recall) / f1_denom)
-        
+
         return precision, recall, f1, int(TP.item()), int(FP.item()), int(FN.item()), int(TN.item())
 
     # Per-class metrics for macro and weighted
@@ -138,7 +142,7 @@ def finalize_metrics(
     if average == "weighted":
         total_support = support.sum()
         weights = torch.zeros_like(support) if total_support.item() == 0 else support / total_support
-        
+
         precision = float((prec_c * weights).sum())
         recall = float((rec_c * weights).sum())
         f1 = float((f1_c * weights).sum())
@@ -198,21 +202,27 @@ class Trainer:
         self.model.train()
 
         for epoch in tqdm(range(1, epochs + 1), desc="Training Epochs"):
+
             running_loss = 0.0
             running_acc = 0.0
             count = 0
 
-            # Epoch-level accumulators (per-class)
-            ep_tp = ep_fp = ep_fn = None
-            ep_N = 0
-            ep_num_classes = None
-
             for i, batch in enumerate(train_loader, start=1):
                 inputs, targets = self._unpack_batch(batch, device)
 
-                with torch.cuda.amp.autocast(enabled=self.config.mixed_precision):
-                    logits = self.model(inputs)
-                    loss = self.criterion(logits, targets) / self.config.grad_accum_steps
+                targets = targets.long()
+
+                print("Target_shape:", targets.shape)
+                print("Input_shape:", inputs.shape)
+
+                print("Target DType:", targets.dtype)
+
+                logits = self.model(inputs)
+
+                print("Logits_shape:", logits.shape)
+                print("Logits DType:", logits.dtype)
+
+                loss = self.criterion(logits, targets) / self.config.grad_accum_steps
 
                 self.scaler.scale(loss).backward()
 
@@ -221,25 +231,12 @@ class Trainer:
                     self.scaler.update()
                     self.optimizer.zero_grad(set_to_none=True)
 
-                # Running metrics
+                # Running metrics (leichtgewichtige Metriken für schnelles Feedback)
                 step_loss = loss.detach().item() * self.config.grad_accum_steps
                 step_acc = accuracy_from_logits(logits.detach(), targets)
                 running_loss += step_loss
                 running_acc += step_acc
                 count += 1
-
-                # Update epoch per-class counts
-                cnt = batch_confusion_counts(logits.detach(), targets)
-                if ep_tp is None:
-                    ep_tp = cnt["tp"].clone()
-                    ep_fp = cnt["fp"].clone()
-                    ep_fn = cnt["fn"].clone()
-                else:
-                    ep_tp += cnt["tp"]
-                    ep_fp += cnt["fp"]
-                    ep_fn += cnt["fn"]
-                ep_N += int(cnt["N"])
-                ep_num_classes = ep_num_classes or int(cnt["C"])
 
                 # Step logging (optional granularity)
                 self.global_step += 1
@@ -253,16 +250,7 @@ class Trainer:
                         "lr": self._get_lr(),
                     })
 
-            # Epoch-end logging on training stream
-            if count > 0 and ep_tp is not None:
-                precision, recall, f1, tp_val, fp_val, fn_val, tn_val = finalize_metrics(
-                    agg_tp=ep_tp,
-                    agg_fp=ep_fp,
-                    agg_fn=ep_fn,
-                    total_N=ep_N,
-                    num_classes=ep_num_classes or 1,
-                    average="auto",
-                )
+            if count > 0:
                 self._log({
                     "epoch": epoch,
                     "step": self.global_step,
@@ -270,26 +258,8 @@ class Trainer:
                     "loss": running_loss / count,
                     "accuracy": running_acc / count,
                     "lr": self._get_lr(),
-                    "precision": precision,
-                    "recall": recall,
-                    "f1": f1,
-                    "tp": tp_val,
-                    "fp": fp_val,
-                    "fn": fn_val,
-                    "tn": tn_val,
                 })
 
-            # Explicit evaluation on the training set (clean eval mode)
-            train_eval = self.evaluate(train_loader)
-            self._log({
-                "epoch": epoch,
-                "step": self.global_step,
-                "split": "train_eval_epoch",
-                **train_eval,
-                "lr": self._get_lr(),
-            })
-
-            # Validation
             if val_loader is not None:
                 val_metrics = self.evaluate(val_loader)
                 self._log({
@@ -319,7 +289,17 @@ class Trainer:
 
         for batch in loader:
             inputs, targets = self._unpack_batch(batch, device)
+            targets = targets.long()  # Ensure targets are long for CrossEntropyLoss
+
+            print("Targets shape:", targets.shape)
+
+
             logits = self.model(inputs)
+
+            print("Logits DType:", logits.dtype)
+
+            print("Logits shape:", logits.shape)
+
             loss = self.criterion(logits, targets)
 
             total_loss += loss.item()
