@@ -52,7 +52,7 @@ class AutoModelVLM(VLLM):
             offload_folder="offload",  # legt eine Auslagerung auf Disk an
             offload_state_dict=True,
             #load_in_8bit=True
-        
+
         )
         self.model.eval()
         self.processor = AutoProcessor.from_pretrained(
@@ -163,7 +163,7 @@ class AutoModelVLM(VLLM):
                     else:
                         chat_text = self._apply_chat_template_safe(msgs)
                     imgs, vids = process_vision_info(msgs)
-                    imgs = [img.resize((img.width//4,img.height//4),Image.Resampling.LANCZOS) for img in imgs]  
+                    imgs = [img.resize((img.width//4,img.height//4),Image.Resampling.LANCZOS) for img in imgs]
                     batch_texts.append(chat_text)
                     batch_images.append(imgs if imgs is not None else [])
                     batch_videos.append(vids if vids is not None else [])
@@ -186,7 +186,7 @@ class AutoModelVLM(VLLM):
             if any_images:
                 processor_kwargs["images"] = batch_images
                 if self.model_name.lower().__contains__("phi-4"):
-                    processor_kwargs["images"] = batch_images[0]  # phi-4 expects list no batch
+                    processor_kwargs["images"] = [item[0] for item in batch_images]  # phi-4 expects a batch of images (no list of list)
             if any_videos:
                 processor_kwargs["videos"] = batch_videos
 

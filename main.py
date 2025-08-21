@@ -9,9 +9,9 @@ from src.vllm.automodel import AutoModelVLM
 
 def main():
 
-    probe = QwenVLProbe(model_name="Qwen/Qwen2-VL-2B-Instruct", device="cuda")
-    #probe = AutoModelVLM(model_name="google/gemma-3-4b-it",device="cuda")
-    #probe = AutoModelVLM(model_name="microsoft/Phi-4-multimodal-instruct", device="cuda")
+    #probe = QwenVLProbe(model_name="Qwen/Qwen2-VL-2B-Instruct", device="cpu")
+    #probe = AutoModelVLM(model_name="google/gemma-3-4b-it",device="cpu")
+    probe = AutoModelVLM(model_name="microsoft/Phi-4-multimodal-instruct", device="cpu")
 
     messages = [
         {
@@ -28,7 +28,7 @@ def main():
     messages = [
         {"label": 0, "messages": messages},
         {"label": 1, "messages": messages},
-        {"label":3, "messages": messages}
+        #{"label":3, "messages": messages}
     ]
 
     hidden_out, label_out = probe.get_hidden_states_batched(

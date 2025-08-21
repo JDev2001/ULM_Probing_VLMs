@@ -32,6 +32,33 @@ def load_caption_ds():
     ds = ds_loader.get_caption_ds()
     return ds
 
+def get_repr_batch(model,texts,imgs):
+
+    examples = []
+    for text, img in zip(texts, imgs):
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "image": img,
+                    },
+                    {"type": "text", "text": text},
+                ],
+            }
+        ]
+        examples.append({"label": 0, "messages": messages})
+
+    hidden_out, label_out = model.get_hidden_states_batched(
+        examples=examples,
+        # output_layer="last_non_padding",
+        output_layer="mean",
+        return_layer=None,
+        batch_size=8,
+    )
+    return hidden_out, label_out
+
 def get_repr(model,text,img):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -58,7 +85,7 @@ def get_repr(model,text,img):
     return hidden_out, label_out
 
 def get_repr_for_layer(hidden_out, layer_num):
-    return hidden_out[:, layer_num, :]
+    return hidden_out[layer_num, :]
 
 
 def train_probe(layer_repr_train, labels_train,layer_repr_eval,labels_eval,name):
@@ -75,7 +102,7 @@ def train_probe(layer_repr_train, labels_train,layer_repr_eval,labels_eval,name)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     num_labels = 2
 
-    emb_dim = layer_repr_train[0].shape[1]
+    emb_dim = layer_repr_train[0].shape[0]
     model_head, criterion, optimizer = build_classifier(emb_dim, num_labels, device, lr=1e-3, dropout=0.1)
 
     config = RunConfig(
