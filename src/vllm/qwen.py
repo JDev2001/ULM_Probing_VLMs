@@ -7,6 +7,8 @@ import torch
 from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 from src.vllm.vllm import VLLM
 from qwen_vl_utils import process_vision_info
+from tqdm import tqdm
+
 
 class QwenVLProbe(VLLM):
     """
@@ -64,7 +66,7 @@ class QwenVLProbe(VLLM):
         all_labels: List[int] = []
 
         # Iterate over batches
-        for batch_start in range(0, len(examples), batch_size):
+        for batch_start in tqdm(range(0, len(examples), batch_size)):
             batch_end = min(batch_start + batch_size, len(examples))
             batch = examples[batch_start:batch_end]
             batch_idx = batch_start // batch_size + 1

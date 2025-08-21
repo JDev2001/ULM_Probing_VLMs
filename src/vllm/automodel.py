@@ -10,7 +10,7 @@ from transformers import AutoModelForCausalLM, AutoProcessor
 from src.vllm.vllm import VLLM
 from qwen_vl_utils import process_vision_info
 from transformers import AutoConfig, AutoModelForCausalLM
-
+from tqdm import tqdm
 
 
 class AutoModelVLM(VLLM):
@@ -142,7 +142,7 @@ class AutoModelVLM(VLLM):
         all_hidden_states: List[torch.Tensor] = []
         all_labels: List[int] = []
 
-        for batch_start in range(0, len(examples), batch_size):
+        for batch_start in tqdm(range(0, len(examples), batch_size)):
             batch_end = min(batch_start + batch_size, len(examples))
             batch = examples[batch_start:batch_end]
 
