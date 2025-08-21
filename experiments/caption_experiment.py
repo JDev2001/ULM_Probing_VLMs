@@ -27,8 +27,8 @@ for model_name, model in models.items():
 
     ds = ds.shuffle().select(range(10000)) # cause of computational limitations, we just consider the first 10.000 entries
 
-    #num_dataset_items = len(ds)
-    num_dataset_items = 1 #test mode
+    num_dataset_items = len(ds)
+    #num_dataset_items = 1 #test mode
 
     print("Computing representations for positive examples")
     for i in tqdm(range(num_dataset_items)):

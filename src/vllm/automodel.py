@@ -1,6 +1,7 @@
 # Inspired by: https://github.com/jammastergirish/LLMProbe
 
 # -*- coding: utf-8 -*-
+from PIL import Image
 from typing import Dict, List, Optional, Tuple, Union
 import time
 import math
@@ -47,8 +48,13 @@ class AutoModelVLM(VLLM):
             torch_dtype=torch_dtype,
             trust_remote_code=True,
             attn_implementation="sdpa", #disable flash attention
-            config=config
+            config=config,
+            offload_folder="offload",  # legt eine Auslagerung auf Disk an
+            offload_state_dict=True,
+            #load_in_8bit=True
+        
         )
+        self.model.eval()
         self.processor = AutoProcessor.from_pretrained(
             model_name,
             trust_remote_code=True
@@ -157,6 +163,7 @@ class AutoModelVLM(VLLM):
                     else:
                         chat_text = self._apply_chat_template_safe(msgs)
                     imgs, vids = process_vision_info(msgs)
+                    imgs = [img.resize((img.width//4,img.height//4),Image.Resampling.LANCZOS) for img in imgs]  
                     batch_texts.append(chat_text)
                     batch_images.append(imgs if imgs is not None else [])
                     batch_videos.append(vids if vids is not None else [])
@@ -186,11 +193,12 @@ class AutoModelVLM(VLLM):
             inputs = self.processor(**processor_kwargs).to(dev)
 
             # Forward with hidden states
-            outputs = self.model(
-                **inputs,
-                output_hidden_states=True,
-                return_dict=True,
-            )
+            with torch.no_grad():
+                outputs = self.model(
+                    **inputs,
+                    output_hidden_states=True,
+                    return_dict=True,
+                )
             hidden_states = outputs.hidden_states  # tuple: (embeddings, layer1, ..., layerN)
 
             B, S, H = hidden_states[0].shape

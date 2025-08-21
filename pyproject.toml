@@ -7,6 +7,7 @@ requires-python = ">=3.11"
 dependencies = [
     "accelerate>=1.10.0",
     "backoff>=2.2.1",
+    "bitsandbytes>=0.47.0",
     "datasets>=4.0.0",
     "matplotlib>=3.10.5",
     "peft>=0.17.0",

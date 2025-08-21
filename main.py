@@ -9,9 +9,9 @@ from src.vllm.automodel import AutoModelVLM
 
 def main():
 
-    #probe = QwenVLProbe(model_name="Qwen/Qwen2-VL-2B-Instruct", device="cpu")
-    #probe = AutoModelVLM(model_name="google/gemma-3-4b-it",device="cpu")
-    probe = AutoModelVLM(model_name="microsoft/Phi-4-multimodal-instruct", device="cpu")
+    #probe = QwenVLProbe(model_name="Qwen/Qwen2-VL-2B-Instruct", device="cuda")
+    #probe = AutoModelVLM(model_name="google/gemma-3-4b-it",device="cuda")
+    #probe = AutoModelVLM(model_name="microsoft/Phi-4-multimodal-instruct", device="cuda")
 
     messages = [
         {

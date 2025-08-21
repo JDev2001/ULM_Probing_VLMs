@@ -1,6 +1,6 @@
 {
   "model_name": "exp3/microsoft_Phi-4-multimodal-instruct_Test_layer32",
-  "device": "cpu",
+  "device": "cuda",
   "lr": 0.001,
   "weight_decay": 0.0,
   "dropout": 0.1,

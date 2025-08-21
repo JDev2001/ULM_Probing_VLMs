@@ -12,7 +12,6 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 
-
 def accuracy_from_logits(logits: torch.Tensor, targets: torch.Tensor) -> float:
     """Compute Top-1 accuracy given raw logits and integer targets."""
     preds = logits.argmax(dim=-1)
@@ -23,6 +22,7 @@ def accuracy_from_logits(logits: torch.Tensor, targets: torch.Tensor) -> float:
 
 def _safe_div(n: torch.Tensor, d: torch.Tensor) -> torch.Tensor:
     """Numerically safe elementwise division (tensor aware)."""
+    # Use torch.where to avoid division by zero, replacing d with 1.0 where d is 0.
     d = torch.where(d == 0, torch.ones_like(d), d)
     return n / d
 
@@ -62,70 +62,95 @@ def finalize_metrics(
     total_N: int,
     num_classes: int,
     average: str = "auto",  # "auto" | "micro" | "macro" | "weighted" | "binary"
-) -> Tuple[float, float, float, int]:
+) -> Tuple[float, float, float, int, int, int, int]:
     """
-    Compute (precision, recall, f1, tn_total) from accumulated per-class counts.
-    - micro: sums counts across classes before ratios
-    - macro: mean of per-class metrics
-    - weighted: support-weighted mean of per-class metrics
-    - binary: classic binary view (equivalent to micro for C=2; TN summed over both classes)
+    Compute (precision, recall, f1, TP, FP, FN, TN) from accumulated per-class counts.
+    - micro: sums counts across classes before ratios (TP, FP, FN returned are sums)
+    - macro: mean of per-class metrics (TP, FP, FN returned are sums)
+    - weighted: support-weighted mean of per-class metrics (TP, FP, FN returned are sums)
+    - binary: classic binary view (TP, FP, FN returned are for the positive class 1)
     - auto: "binary" if C==2 else "macro"
     """
     tp = agg_tp.to(torch.float64)
     fp = agg_fp.to(torch.float64)
     fn = agg_fn.to(torch.float64)
 
-    tn_per_class = total_N - tp - fp - fn
     support = tp + fn
 
     # Resolve averaging strategy
     if average == "auto":
         average = "binary" if num_classes == 2 else "macro"
 
-    print(f"Finalizing metrics with average={average}, num_classes={num_classes}")
+    print(f"Finalizing metrics with average='{average}', num_classes={num_classes}")
 
-    if average in ("micro", "binary"):
+    # =================================================================================
+    # FIX: START of corrected logic for binary classification
+    # =================================================================================
+    if average == "binary":
+        if num_classes != 2:
+            # Fallback for safety, although 'auto' logic prevents this.
+            average = "macro"
+        else:
+            # Standard binary metrics are calculated w.r.t. the "positive" class (class 1).
+            TP = tp[1]
+            FP = fp[1]
+            FN = fn[1]
+            # TN for the positive class is everything that was not class 1 and not predicted as class 1.
+            # This is equivalent to N - TP - FP - FN for that class.
+            TN = total_N - TP - FP - FN
+
+            precision = float(_safe_div(TP, TP + FP))
+            recall = float(_safe_div(TP, TP + FN))
+            f1_denom = precision + recall
+            f1 = float(0.0 if f1_denom == 0.0 else (2 * precision * recall) / f1_denom)
+            
+            return precision, recall, f1, int(TP.item()), int(FP.item()), int(FN.item()), int(TN.item())
+    # =================================================================================
+    # FIX: END of corrected logic
+    # =================================================================================
+
+    if average == "micro":
         TP = tp.sum()
         FP = fp.sum()
         FN = fn.sum()
+        TN = (total_N - tp - fp - fn).sum() # Sum of TNs for all classes
+        
         precision = float(_safe_div(TP, TP + FP))
         recall = float(_safe_div(TP, TP + FN))
-        f1 = float(0.0 if (precision + recall) == 0.0 else (2 * precision * recall) / (precision + recall))
-        tn_total = int(tn_per_class.sum().item())
-        return precision, recall, f1, tn_total
+        f1_denom = precision + recall
+        f1 = float(0.0 if f1_denom == 0.0 else (2 * precision * recall) / f1_denom)
+        
+        return precision, recall, f1, int(TP.item()), int(FP.item()), int(FN.item()), int(TN.item())
 
-    # Per-class metrics
+    # Per-class metrics for macro and weighted
     prec_c = _safe_div(tp, tp + fp)    # [C]
     rec_c  = _safe_div(tp, tp + fn)    # [C]
-    denom  = prec_c + rec_c
-    f1_c   = torch.where(denom == 0, torch.zeros_like(denom), 2 * prec_c * rec_c / denom)
+    f1_denom_c  = prec_c + rec_c
+    f1_c   = torch.where(f1_denom_c == 0, torch.zeros_like(f1_denom_c), 2 * prec_c * rec_c / f1_denom_c)
+    tn_total = int((total_N - tp - fp - fn).sum().item())
 
     if average == "macro":
         precision = float(prec_c.mean())
         recall = float(rec_c.mean())
         f1 = float(f1_c.mean())
-        tn_total = int(tn_per_class.sum().item())
-        return precision, recall, f1, tn_total
+        return precision, recall, f1, int(tp.sum().item()), int(fp.sum().item()), int(fn.sum().item()), tn_total
 
     if average == "weighted":
         total_support = support.sum()
-        if total_support.item() == 0:
-            weights = torch.zeros_like(support)
-        else:
-            weights = support / total_support
+        weights = torch.zeros_like(support) if total_support.item() == 0 else support / total_support
+        
         precision = float((prec_c * weights).sum())
         recall = float((rec_c * weights).sum())
         f1 = float((f1_c * weights).sum())
-        tn_total = int(tn_per_class.sum().item())
-        return precision, recall, f1, tn_total
+        return precision, recall, f1, int(tp.sum().item()), int(fp.sum().item()), int(fn.sum().item()), tn_total
 
-    # Fallback to micro
-    TP = tp.sum(); FP = fp.sum(); FN = fn.sum()
+    # Fallback, should not be reached with the current logic but good practice
+    TP = tp.sum(); FP = fp.sum(); FN = fn.sum(); TN = (total_N - tp - fp - fn).sum()
     precision = float(_safe_div(TP, TP + FP))
     recall = float(_safe_div(TP, TP + FN))
-    f1 = float(0.0 if (precision + recall) == 0.0 else (2 * precision * recall) / (precision + recall))
-    tn_total = int(tn_per_class.sum().item())
-    return precision, recall, f1, tn_total
+    f1_denom = precision + recall
+    f1 = float(0.0 if f1_denom == 0.0 else (2 * precision * recall) / f1_denom)
+    return precision, recall, f1, int(TP.item()), int(FP.item()), int(FN.item()), int(TN.item())
 
 
 class Trainer:
@@ -230,13 +255,13 @@ class Trainer:
 
             # Epoch-end logging on training stream
             if count > 0 and ep_tp is not None:
-                precision, recall, f1, tn = finalize_metrics(
+                precision, recall, f1, tp_val, fp_val, fn_val, tn_val = finalize_metrics(
                     agg_tp=ep_tp,
                     agg_fp=ep_fp,
                     agg_fn=ep_fn,
                     total_N=ep_N,
                     num_classes=ep_num_classes or 1,
-                    average="auto",  # binary if C==2 else macro
+                    average="auto",
                 )
                 self._log({
                     "epoch": epoch,
@@ -248,10 +273,10 @@ class Trainer:
                     "precision": precision,
                     "recall": recall,
                     "f1": f1,
-                    "tp": int(ep_tp.sum().item()),
-                    "fp": int(ep_fp.sum().item()),
-                    "fn": int(ep_fn.sum().item()),
-                    "tn": tn,
+                    "tp": tp_val,
+                    "fp": fp_val,
+                    "fn": fn_val,
+                    "tn": tn_val,
                 })
 
             # Explicit evaluation on the training set (clean eval mode)
@@ -287,6 +312,7 @@ class Trainer:
         total_acc = 0.0
         total_batches = 0
 
+        # Epoch-level accumulators for evaluation
         ep_tp = ep_fp = ep_fn = None
         ep_N = 0
         ep_num_classes = None
@@ -300,6 +326,7 @@ class Trainer:
             total_acc += accuracy_from_logits(logits, targets)
             total_batches += 1
 
+            # Accumulate confusion matrix counts
             cnt = batch_confusion_counts(logits, targets)
             if ep_tp is None:
                 ep_tp = cnt["tp"].clone()
@@ -312,28 +339,22 @@ class Trainer:
             ep_N += int(cnt["N"])
             ep_num_classes = ep_num_classes or int(cnt["C"])
 
-        self.model.train()
+        self.model.train() # Set model back to training mode
 
         if total_batches == 0 or ep_tp is None:
             return {
-                "loss": 0.0,
-                "accuracy": 0.0,
-                "precision": 0.0,
-                "recall": 0.0,
-                "f1": 0.0,
-                "tp": 0,
-                "fp": 0,
-                "fn": 0,
-                "tn": 0,
+                "loss": 0.0, "accuracy": 0.0, "precision": 0.0, "recall": 0.0, "f1": 0.0,
+                "tp": 0, "fp": 0, "fn": 0, "tn": 0,
             }
 
-        precision, recall, f1, tn = finalize_metrics(
+        # Finalize metrics using the corrected function
+        precision, recall, f1, tp_val, fp_val, fn_val, tn_val = finalize_metrics(
             agg_tp=ep_tp,
             agg_fp=ep_fp,
             agg_fn=ep_fn,
             total_N=ep_N,
             num_classes=ep_num_classes or 1,
-            average="auto",  # binary if C==2 else macro
+            average="auto",
         )
 
         return {
@@ -342,10 +363,10 @@ class Trainer:
             "precision": precision,
             "recall": recall,
             "f1": f1,
-            "tp": int(ep_tp.sum().item()),
-            "fp": int(ep_fp.sum().item()),
-            "fn": int(ep_fn.sum().item()),
-            "tn": tn,
+            "tp": tp_val,
+            "fp": fp_val,
+            "fn": fn_val,
+            "tn": tn_val,
         }
 
     def save_artifacts(self, filename_model: str = "model.pt", filename_optim: str = "optimizer.pt"):
@@ -387,20 +408,17 @@ class Trainer:
             "epoch", "step", "split", "loss", "accuracy", "lr",
             "precision", "recall", "f1", "tp", "fp", "fn", "tn"
         ]
-        filled = {}
-        for k in keys:
-            if k in row:
-                filled[k] = row[k]
-            else:
-                filled[k] = 0 if k in {"tp", "fp", "fn", "tn"} else 0.0
+        # Fill missing keys with default values for consistent CSV rows
+        filled_row = {k: row.get(k, 0 if k in {"tp", "fp", "fn", "tn"} else 0.0) for k in keys}
         with open(self.log_path, mode="a", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=keys)
-            writer.writerow(filled)
+            writer.writerow(filled_row)
 
     def _save_config(self):
         """Persist basic configuration for later reproducibility/plotting."""
         cfg_path = os.path.join(self.run_dir, "config.json")
         with open(cfg_path, "w", encoding="utf-8") as f:
+            # Assuming config is a dataclass
             json.dump(asdict(self.config), f, ensure_ascii=False, indent=2)
 
     def _get_lr(self) -> float:

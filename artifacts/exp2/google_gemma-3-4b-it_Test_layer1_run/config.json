@@ -1,6 +1,6 @@
 {
   "model_name": "exp2/google_gemma-3-4b-it_Test_layer1",
-  "device": "cpu",
+  "device": "cuda",
   "lr": 0.001,
   "weight_decay": 0.0,
   "dropout": 0.1,
