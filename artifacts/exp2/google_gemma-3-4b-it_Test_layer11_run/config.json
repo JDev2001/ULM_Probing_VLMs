@@ -1,11 +1,10 @@
 {
   "model_name": "exp2/google_gemma-3-4b-it_Test_layer11",
   "device": "cuda",
-  "lr": 0.001,
-  "weight_decay": 0.0,
-  "dropout": 0.1,
   "epochs": 20,
+  "mixed_precision": false,
   "grad_accum_steps": 1,
   "log_interval": 20,
-  "mixed_precision": false
+  "lr": 0.001,
+  "dropout": 0.1
 }

@@ -49,7 +49,7 @@ for model_name, model in models.items():
 
 
 
-    for i in tqdm(range(num_dataset_train)):
+    for i in range(num_dataset_train):
         prompt = load_captions_prompt().format(caption=ds_train[i]['caption_pos'])
         prompts_train.append(prompt)
         imgs_train.append(ds_train[i]['url'])
@@ -61,7 +61,7 @@ for model_name, model in models.items():
         labels_train.append(0)
 
 
-    for i in tqdm(range(num_dataset_eval)):
+    for i in range(num_dataset_eval):
 
         prompt = load_captions_prompt().format(caption=ds_eval[i]['caption_pos'])
         prompts_eval.append(prompt)
