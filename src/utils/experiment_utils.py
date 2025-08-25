@@ -80,7 +80,7 @@ def get_repr(model,text,img):
         # output_layer="last_non_padding",
         output_layer="mean",
         return_layer=None,
-        batch_size=8,
+        batch_size=4,
     )
     return hidden_out, label_out
 

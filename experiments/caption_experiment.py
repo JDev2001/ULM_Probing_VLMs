@@ -1,8 +1,10 @@
 import os, sys
-from src.vllm.qwen import QwenVLProbe
-from src.vllm.automodel import AutoModelVLM
 import torch
 from tqdm import tqdm
+import gc # Import the garbage collection module
+
+from src.vllm.qwen import QwenVLProbe
+from src.vllm.automodel import AutoModelVLM
 from src.utils.experiment_utils import  get_repr_batch, get_repr_for_layer, train_probe, load_captions_prompt, load_caption_ds
 
 
@@ -15,17 +17,25 @@ print(len(ds_train), len(ds_eval))
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model_name = "Qwen/Qwen2.5-3B-Instruct"
 
-models = {
-    "exp1/Qwen_Qwen2-VL-2B-Instruct": QwenVLProbe(model_name="Qwen/Qwen2-VL-2B-Instruct", device=device),
-    "exp2/google_gemma-3-4b-it": AutoModelVLM(model_name="google/gemma-3-4b-it",device=device),
-    "exp3/microsoft_Phi-4-multimodal-instruct": AutoModelVLM(model_name="microsoft/Phi-4-multimodal-instruct", device=device)
+
+model_configs = {
+    "exp1/Qwen_Qwen2-VL-2B-Instruct": ("Qwen/Qwen2-VL-2B-Instruct", QwenVLProbe),
+    "exp2/google_gemma-3-4b-it": ("google/gemma-3-4b-it", AutoModelVLM),
+    "exp3/microsoft_Phi-4-multimodal-instruct": ("microsoft/Phi-4-multimodal-instruct", AutoModelVLM)
 }
 
-for model_name, model in models.items():
 
-    print(f"Processing {model_name}")
+for experiment_name, (model_hf_name, model_class) in model_configs.items():
+
+    print("----------------------------------------------------")
+    print(f"Processing {experiment_name}")
+    print("----------------------------------------------------")
+
+  
+    print(f"Loading model: {model_hf_name}...")
+    model = model_class(model_name=model_hf_name, device=device)
+    print("Model loaded.")
 
     repr_train = []
     labels_train = []
@@ -37,48 +47,47 @@ for model_name, model in models.items():
     prompts_eval = []
     imgs_eval = []
 
-    ds_train = ds_train.shuffle().select(range(10000)) # cause of computational limitations, we just consider random 10.000 entries
-    ds_eval = ds_eval.shuffle().select(range(10000)) # cause of computational limitations, we just consider random 10000 entries
+ 
+    ds_train_sample = ds_train.shuffle().select(range(10000))
+    ds_eval_sample = ds_eval.shuffle().select(range(10000))
 
-    num_dataset_train = len(ds_train)
-    num_dataset_eval = len(ds_eval)
+    num_dataset_train = len(ds_train_sample)
+    num_dataset_eval = len(ds_eval_sample)
 
     if False: # Testmode
         num_dataset_train = 1
         num_dataset_eval = 1
 
-
-
-    for i in range(num_dataset_train):
-        prompt = load_captions_prompt().format(caption=ds_train[i]['caption_pos'])
-        prompts_train.append(prompt)
-        imgs_train.append(ds_train[i]['url'])
+    print("Preparing train data...")
+    for i in tqdm(range(num_dataset_train)):
+        prompt_pos = load_captions_prompt().format(caption=ds_train_sample[i]['caption_pos'])
+        prompts_train.append(prompt_pos)
+        imgs_train.append(ds_train_sample[i]['url'])
         labels_train.append(1)
 
-        prompt = load_captions_prompt().format(caption=ds_train[i]['caption_neg'])
-        prompts_train.append(prompt)
-        imgs_train.append(ds_train[i]['url'])
+        prompt_neg = load_captions_prompt().format(caption=ds_train_sample[i]['caption_neg'])
+        prompts_train.append(prompt_neg)
+        imgs_train.append(ds_train_sample[i]['url'])
         labels_train.append(0)
 
-
-    for i in range(num_dataset_eval):
-
-        prompt = load_captions_prompt().format(caption=ds_eval[i]['caption_pos'])
-        prompts_eval.append(prompt)
-        imgs_eval.append(ds_eval[i]['url'])
+    print("Preparing eval data...")
+    for i in tqdm(range(num_dataset_eval)):
+        prompt_pos = load_captions_prompt().format(caption=ds_eval_sample[i]['caption_pos'])
+        prompts_eval.append(prompt_pos)
+        imgs_eval.append(ds_eval_sample[i]['url'])
         labels_eval.append(1)
 
-
-        prompt = load_captions_prompt().format(caption=ds_eval[i]['caption_neg'])
-        prompts_eval.append(prompt)
-        imgs_eval.append(ds_eval[i]['url'])
+        prompt_neg = load_captions_prompt().format(caption=ds_eval_sample[i]['caption_neg'])
+        prompts_eval.append(prompt_neg)
+        imgs_eval.append(ds_eval_sample[i]['url'])
         labels_eval.append(0)
 
     print("Computing representations for train examples")
-    repr_train_batched,_ = get_repr_batch(model,prompts_train,imgs_train)
+    repr_train_batched, _ = get_repr_batch(model, prompts_train, imgs_train)
 
     print("Computing representations for eval examples")
-    reprs_eval_batched,_ = get_repr_batch(model,prompts_eval,imgs_eval)
+    reprs_eval_batched, _ = get_repr_batch(model, prompts_eval, imgs_eval)
+
 
     for i in range(len(repr_train_batched)):
         repr_train.append(repr_train_batched[i])
@@ -86,9 +95,23 @@ for model_name, model in models.items():
     for i in range(len(reprs_eval_batched)):
         reprs_eval.append(reprs_eval_batched[i])
 
+
     print("Training probes for each layer")
-    for layer in tqdm(range(repr_train[0].shape[0])):
-        layer_repr = [get_repr_for_layer(h,layer)for h in repr_train] #e.g Layer 3
-        layer_repr_eval = [get_repr_for_layer(h,layer)for h in reprs_eval]
-        run_name = f"{model_name}_Test_layer{layer}"
+    for layer in tqdm(range(repr_train[0].shape[0]), desc=f"Training Probes for {experiment_name}"):
+        layer_repr = [get_repr_for_layer(h, layer) for h in repr_train]
+        layer_repr_eval = [get_repr_for_layer(h, layer) for h in reprs_eval]
+        run_name = f"{experiment_name}_Test_layer{layer}"
         train_probe(layer_repr, labels_train, layer_repr_eval, labels_eval, run_name)
+
+  
+    print(f"Finished processing {experiment_name}. Releasing resources.")
+    del model
+    del repr_train
+    del reprs_eval
+
+    
+    gc.collect() 
+    if device == "cuda":
+        torch.cuda.empty_cache() # Release cached memory on the GPU
+    print("Resources released. Moving to next model.\n")
+
