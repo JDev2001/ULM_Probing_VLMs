@@ -7,6 +7,7 @@ import time
 import math
 import torch
 from transformers import AutoModelForCausalLM, AutoProcessor
+from src.utils.experiment_utils import resize_image_aspect_ratio
 from src.vllm.vllm import VLLM
 from qwen_vl_utils import process_vision_info
 from transformers import AutoConfig, AutoModelForCausalLM
@@ -163,7 +164,7 @@ class AutoModelVLM(VLLM):
                     else:
                         chat_text = self._apply_chat_template_safe(msgs)
                     imgs, vids = process_vision_info(msgs)
-                    #imgs = [img.resize((img.width//4,img.height//4),Image.Resampling.LANCZOS) for img in imgs]
+                    imgs = [resize_image_aspect_ratio(img, target_size=300) for img in imgs]
                     batch_texts.append(chat_text)
                     batch_images.append(imgs if imgs is not None else [])
                     batch_videos.append(vids if vids is not None else [])

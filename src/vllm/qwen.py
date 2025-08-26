@@ -5,6 +5,7 @@ import time
 import math
 import torch
 from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
+from src.utils.experiment_utils import resize_image_aspect_ratio
 from src.vllm.vllm import VLLM
 from qwen_vl_utils import process_vision_info
 from tqdm import tqdm
@@ -85,8 +86,10 @@ class QwenVLProbe(VLLM):
                     chat_text = self.processor.apply_chat_template(
                         msgs, tokenize=False, add_generation_prompt=False
                     )
+                    
                     imgs, vids = process_vision_info(msgs)
-                    #imgs = [img.resize((img.width//4,img.height//4),Image.Resampling.LANCZOS) for img in imgs]  
+
+                    imgs = [resize_image_aspect_ratio(img, target_size=300) for img in imgs]
                     # Ensure per-sample container lists; processor expects lists aligned with `text`
                     batch_texts.append(chat_text)
                     batch_images.append(imgs if imgs is not None else [])
