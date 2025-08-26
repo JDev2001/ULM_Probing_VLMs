@@ -86,7 +86,7 @@ class QwenVLProbe(VLLM):
                         msgs, tokenize=False, add_generation_prompt=False
                     )
                     imgs, vids = process_vision_info(msgs)
-                    imgs = [img.resize((img.width//4,img.height//4),Image.Resampling.LANCZOS) for img in imgs]  
+                    #imgs = [img.resize((img.width//4,img.height//4),Image.Resampling.LANCZOS) for img in imgs]  
                     # Ensure per-sample container lists; processor expects lists aligned with `text`
                     batch_texts.append(chat_text)
                     batch_images.append(imgs if imgs is not None else [])
