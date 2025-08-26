@@ -7,7 +7,7 @@ import time
 import math
 import torch
 from transformers import AutoModelForCausalLM, AutoProcessor
-from src.utils.experiment_utils import resize_image_aspect_ratio
+from src.utils.image_utils import resize_image_aspect_ratio
 from src.vllm.vllm import VLLM
 from qwen_vl_utils import process_vision_info
 from transformers import AutoConfig, AutoModelForCausalLM
