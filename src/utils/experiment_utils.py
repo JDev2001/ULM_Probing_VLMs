@@ -253,3 +253,6 @@ def load_captions_prompt():
     with open("src/prompts/global_features.txt", "r") as f:
         return f.read().strip()
 
+def load_categories_prompt():
+    with open("src/prompts/local_features.txt", "r") as f:
+        return f.read().strip()
