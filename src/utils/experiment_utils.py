@@ -25,7 +25,8 @@ from pathlib import Path
 def load_category_ds():
     ds_loader = DSLoader(split="train")
     ds = ds_loader.get_category_ds()
-    return ds
+    categories = ds_loader.get_categores()
+    return ds, categories
 
 def load_caption_ds():
     ds_loader = DSLoader(split="train")
