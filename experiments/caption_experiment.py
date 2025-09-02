@@ -49,12 +49,12 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
 
  
     ds_train_sample = ds_train.shuffle().select(range(10000))
-    ds_eval_sample = ds_eval.shuffle().select(range(10000))
+    ds_eval_sample = ds_eval.shuffle().select(range(1000))
 
     num_dataset_train = len(ds_train_sample)
     num_dataset_eval = len(ds_eval_sample)
 
-    if False: # Testmode
+    if True: # Testmode
         num_dataset_train = 1
         num_dataset_eval = 1
 
