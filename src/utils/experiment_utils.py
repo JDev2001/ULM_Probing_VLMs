@@ -15,7 +15,6 @@ from src.probes.classifier import build_classifier
 from src.probes.classifier_category import build_classifier_category
 from src.probes.trainer import Trainer, RunConfig
 from src.probes.trainer_category import Trainer_category, RunConfig_category
-from src.utils.experiment_utils import load_category_ds
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 import src.vllm.qwen
