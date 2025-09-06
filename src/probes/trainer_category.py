@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from dataclasses import dataclass
 
 @dataclass
-class RunConfig:
+class RunConfig_category:
     model_name: str = "default_model"
     device: str = "cpu"
     epochs: int = 10
@@ -29,6 +29,36 @@ def accuracy_from_logits(logits: torch.Tensor, targets: torch.Tensor) -> float:
     total = targets.numel()
     return correct / total if total > 0 else 0.0
 
+def multilabel_metrics_from_logits(
+    logits: torch.Tensor, targets: torch.Tensor, masks: torch.Tensor | None, threshold: float = 0.5
+):
+    """
+    logits: [B, C], targets: [B, C] float in {0,1}, masks: [B, C] float in {0,1} or None
+    Returns micro accuracy, precision, recall, f1 and TP/FP/FN/TN (ints).
+    """
+    probs = torch.sigmoid(logits)
+    preds = (probs >= threshold).float()
+
+    if masks is None:
+        masks = torch.ones_like(targets)
+
+    preds_m = preds * masks
+    targs_m = targets * masks
+
+    TP = (preds_m * targs_m).sum()
+    FP = (preds_m * (1 - targs_m)).sum()
+    FN = ((1 - preds_m) * targs_m).sum()
+    TN = ((1 - preds_m) * (1 - targs_m)).sum()
+
+    precision = float(_safe_div(TP, TP + FP))
+    recall    = float(_safe_div(TP, TP + FN))
+    denom = precision + recall
+    f1 = float(0.0 if denom == 0 else (2 * precision * recall) / denom)
+
+    total = masks.sum()
+    acc = float(((preds == targets).float() * masks).sum() / total) if total.item() > 0 else 0.0
+
+    return acc, precision, recall, f1, int(TP.item()), int(FP.item()), int(FN.item()), int(TN.item())
 
 def _safe_div(n: torch.Tensor, d: torch.Tensor) -> torch.Tensor:
     """Numerically safe elementwise division (tensor aware)."""
@@ -157,14 +187,14 @@ def finalize_metrics(
     return precision, recall, f1, int(TP.item()), int(FP.item()), int(FN.item()), int(TN.item())
 
 
-class Trainer:
+class Trainer_category:
     """Handles training, evaluation, logging, and saving."""
     def __init__(
         self,
         model: nn.Module,
         criterion: nn.Module,
         optimizer: torch.optim.Optimizer,
-        config: RunConfig,
+        config: RunConfig_category,
     ):
         self.model = model
         self.criterion = criterion
@@ -209,26 +239,20 @@ class Trainer:
 
             for i, batch in enumerate(train_loader, start=1):
                 inputs, targets, masks = self._unpack_batch(batch, device)
-
-                targets = targets.long()
-
-                print("Target_shape:", targets.shape)
-                print("Input_shape:", inputs.shape)
-
-                print("Target DType:", targets.dtype)
-
                 logits = self.model(inputs)
 
-                print("Logits_shape:", logits.shape)
-                print("Logits DType:", logits.dtype)
-
-                if masks is not None:
-                    loss = (self.criterion(logits, targets) * masks).sum() / masks.sum()
+                if targets.dtype in (torch.float16, torch.float32, torch.float64):
+                    # Multi-label masked BCE
+                    if masks is None:
+                        masks = torch.ones_like(targets)
+                    per_logit_loss = self.criterion(logits, targets)
+                    loss = (per_logit_loss * masks).sum() / masks.sum()
                 else:
+                    # Single-label
+                    targets = targets.long()
                     loss = self.criterion(logits, targets)
 
                 loss = loss / self.config.grad_accum_steps
-
                 self.scaler.scale(loss).backward()
 
                 if i % self.config.grad_accum_steps == 0:
@@ -238,7 +262,11 @@ class Trainer:
 
                 # Running metrics (leichtgewichtige Metriken für schnelles Feedback)
                 step_loss = loss.detach().item() * self.config.grad_accum_steps
-                step_acc = accuracy_from_logits(logits.detach(), targets)
+                if targets.dtype in (torch.float16, torch.float32, torch.float64):
+                    step_acc, _, _, _, _, _, _, _ = multilabel_metrics_from_logits(logits.detach(), targets.detach(), masks)
+                else:
+                    step_acc = accuracy_from_logits(logits.detach(), targets)
+
                 running_loss += step_loss
                 running_acc += step_acc
                 count += 1
@@ -294,38 +322,44 @@ class Trainer:
 
         for batch in loader:
             inputs, targets, masks = self._unpack_batch(batch, device)
-            targets = targets.long()  # Ensure targets are long for CrossEntropyLoss
-
-            print("Targets shape:", targets.shape)
-
-
             logits = self.model(inputs)
 
-            print("Logits DType:", logits.dtype)
-
-            print("Logits shape:", logits.shape)
-
-            if masks is not None:
-                loss = (self.criterion(logits, targets) * masks).sum() / masks.sum()
+            if targets.dtype in (torch.float16, torch.float32, torch.float64):
+                if masks is None:
+                   masks = torch.ones_like(targets)
+                per_logit_loss = self.criterion(logits, targets)
+                loss = (per_logit_loss * masks).sum() / masks.sum()
             else:
+                targets = targets.long()
                 loss = self.criterion(logits, targets)
 
+            if targets.dtype in (torch.float16, torch.float32, torch.float64):
+                acc, prec, rec, f1, tp, fp, fn, tn = multilabel_metrics_from_logits(logits, targets, masks)
+                total_acc += acc
+                # Sum counts for micro averaging across the epoch
+                if "agg_counts" not in locals():
+                    agg_tp = tp; agg_fp = fp; agg_fn = fn; agg_tn = tn
+                else:
+                    agg_tp += tp; agg_fp += fp; agg_fn += fn; agg_tn += tn
+            else:
+                total_acc += accuracy_from_logits(logits, targets)
+
             total_loss += loss.item()
-            total_acc += accuracy_from_logits(logits, targets)
             total_batches += 1
 
             # Accumulate confusion matrix counts
-            cnt = batch_confusion_counts(logits, targets)
-            if ep_tp is None:
-                ep_tp = cnt["tp"].clone()
-                ep_fp = cnt["fp"].clone()
-                ep_fn = cnt["fn"].clone()
-            else:
-                ep_tp += cnt["tp"]
-                ep_fp += cnt["fp"]
-                ep_fn += cnt["fn"]
-            ep_N += int(cnt["N"])
-            ep_num_classes = ep_num_classes or int(cnt["C"])
+            if targets.dtype not in (torch.float16, torch.float32, torch.float64):
+                cnt = batch_confusion_counts(logits, targets)
+                if ep_tp is None:
+                    ep_tp = cnt["tp"].clone()
+                    ep_fp = cnt["fp"].clone()
+                    ep_fn = cnt["fn"].clone()
+                else:
+                    ep_tp += cnt["tp"]
+                    ep_fp += cnt["fp"]
+                    ep_fn += cnt["fn"]
+                ep_N += int(cnt["N"])
+                ep_num_classes = ep_num_classes or int(cnt["C"])
 
         self.model.train() # Set model back to training mode
 
@@ -336,26 +370,23 @@ class Trainer:
             }
 
         # Finalize metrics using the corrected function
-        precision, recall, f1, tp_val, fp_val, fn_val, tn_val = finalize_metrics(
-            agg_tp=ep_tp,
-            agg_fp=ep_fp,
-            agg_fn=ep_fn,
-            total_N=ep_N,
-            num_classes=ep_num_classes or 1,
-            average="auto",
-        )
-
-        return {
-            "loss": total_loss / total_batches,
-            "accuracy": total_acc / total_batches,
-            "precision": precision,
-            "recall": recall,
-            "f1": f1,
-            "tp": tp_val,
-            "fp": fp_val,
-            "fn": fn_val,
-            "tn": tn_val,
-        }
+        if "agg_counts" in locals():
+            TP = torch.tensor(agg_tp, dtype=torch.float64)
+            FP = torch.tensor(agg_fp, dtype=torch.float64)
+            FN = torch.tensor(agg_fn, dtype=torch.float64)
+            TN = torch.tensor(agg_tn, dtype=torch.float64)
+            precision = float(_safe_div(TP, TP + FP))
+            recall    = float(_safe_div(TP, TP + FN))
+            denom = precision + recall
+            f1 = float(0.0 if denom == 0 else (2 * precision * recall) / denom)
+            return {
+                "loss": total_loss / total_batches,
+                "accuracy": total_acc / total_batches,
+                "precision": precision,
+                "recall": recall,
+                "f1": f1,
+                "tp": int(TP.item()), "fp": int(FP.item()), "fn": int(FN.item()), "tn": int(TN.item()),
+            }
 
     def save_artifacts(self, filename_model: str = "model.pt", filename_optim: str = "optimizer.pt"):
         """Save model and optimizer state_dicts."""

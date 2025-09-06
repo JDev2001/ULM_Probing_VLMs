@@ -12,7 +12,9 @@ from src.vllm.automodel import AutoModelVLM
 import torch
 from src.data.dataset_loader import DSLoader
 from src.probes.classifier import build_classifier
+from src.probes.classifier_category import build_classifier_category
 from src.probes.trainer import Trainer, RunConfig
+from src.probes.trainer_category import Trainer_category, RunConfig_category
 from src.utils.experiment_utils import load_category_ds
 import torch
 from torch.utils.data import DataLoader, TensorDataset
@@ -141,9 +143,9 @@ def train_probe_local(layer_repr_train, labels_train, layer_repr_eval, labels_ev
     num_labels = len(load_category_ds()[1])
 
     emb_dim = layer_repr_train[0].shape[0]
-    model_head, criterion, optimizer = build_classifier(emb_dim, num_labels, device, lr=1e-3, dropout=0.1)
+    model_head, criterion, optimizer = build_classifier_category(emb_dim, num_labels, device, lr=1e-3, dropout=0.1)
 
-    config = RunConfig(
+    config = RunConfig_category(
         model_name=name,
         device=device,
         lr=1e-3,
@@ -156,7 +158,7 @@ def train_probe_local(layer_repr_train, labels_train, layer_repr_eval, labels_ev
     train_loader = DataLoader(dataset_train,  batch_size=16, shuffle=True)
     eval_loader = DataLoader(dataset_eval, batch_size=16, shuffle=False)
 
-    trainer = Trainer(model_head, criterion, optimizer, config)
+    trainer = Trainer_category(model_head, criterion, optimizer, config)
     trainer.fit(train_loader, eval_loader)
 
 def list_subfolders(directory):
