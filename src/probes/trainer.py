@@ -212,15 +212,10 @@ class Trainer:
 
                 targets = targets.long()
 
-                print("Target_shape:", targets.shape)
-                print("Input_shape:", inputs.shape)
-
-                print("Target DType:", targets.dtype)
-
+           
                 logits = self.model(inputs)
 
-                print("Logits_shape:", logits.shape)
-                print("Logits DType:", logits.dtype)
+            
 
                 loss = self.criterion(logits, targets) / self.config.grad_accum_steps
 

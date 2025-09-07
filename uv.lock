@@ -1872,6 +1872,7 @@ dependencies = [
     { name = "pytest" },
     { name = "qwen-vl-utils" },
     { name = "scipy" },
+    { name = "setuptools" },
     { name = "torchvision" },
     { name = "transformers" },
 ]
@@ -1888,6 +1889,7 @@ requires-dist = [
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "qwen-vl-utils", specifier = ">=0.0.11" },
     { name = "scipy", specifier = ">=1.16.1" },
+    { name = "setuptools", specifier = ">=80.9.0" },
     { name = "torchvision", specifier = ">=0.23.0" },
     { name = "transformers", specifier = "==4.50.0" },
 ]

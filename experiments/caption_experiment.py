@@ -20,8 +20,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 model_configs = {
-    "exp1/Qwen_Qwen2-VL-2B-Instruct": ("Qwen/Qwen2-VL-2B-Instruct", QwenVLProbe),
-    "exp2/google_gemma-3-4b-it": ("google/gemma-3-4b-it", AutoModelVLM),
+  #  "exp1/Qwen_Qwen2-VL-2B-Instruct": ("Qwen/Qwen2-VL-2B-Instruct", QwenVLProbe),
+#    "exp2/google_gemma-3-4b-it": ("google/gemma-3-4b-it", AutoModelVLM),
     "exp3/microsoft_Phi-4-multimodal-instruct": ("microsoft/Phi-4-multimodal-instruct", AutoModelVLM)
 }
 
@@ -48,13 +48,13 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
     imgs_eval = []
 
  
-    ds_train_sample = ds_train.shuffle().select(range(10000))
-    ds_eval_sample = ds_eval.shuffle().select(range(1000))
+    ds_train_sample = ds_train.shuffle().select(range(7000))
+    ds_eval_sample = ds_eval.shuffle().select(range(700))
 
     num_dataset_train = len(ds_train_sample)
     num_dataset_eval = len(ds_eval_sample)
 
-    if True: # Testmode
+    if False: # Testmode
         num_dataset_train = 1
         num_dataset_eval = 1
 

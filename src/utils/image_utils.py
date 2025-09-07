@@ -1,6 +1,6 @@
 from PIL import Image
 
-def resize_image_aspect_ratio(img, target_size=300, only_shrink=True):
+def resize_image_aspect_ratio(img, target_size=150, only_shrink=True):
     """
     Resizes a PIL Image while maintaining its aspect ratio.
 
