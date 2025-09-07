@@ -12,7 +12,9 @@ from src.vllm.automodel import AutoModelVLM
 import torch
 from src.data.dataset_loader import DSLoader
 from src.probes.classifier import build_classifier
+from src.probes.classifier_category import build_classifier_category
 from src.probes.trainer import Trainer, RunConfig
+from src.probes.trainer_category import Trainer_category, RunConfig_category
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 import src.vllm.qwen
@@ -25,7 +27,8 @@ from pathlib import Path
 def load_category_ds():
     ds_loader = DSLoader(split="train")
     ds = ds_loader.get_category_ds()
-    return ds
+    categories = ds_loader.get_categores()
+    return ds, categories
 
 def load_caption_ds():
     ds_loader = DSLoader(split="train")
@@ -122,6 +125,41 @@ def train_probe(layer_repr_train, labels_train,layer_repr_eval,labels_eval,name)
     eval_loader = DataLoader(dataset_eval, batch_size=16, shuffle=False)
 
     trainer = Trainer(model_head, criterion, optimizer, config)
+    trainer.fit(train_loader, eval_loader)
+
+def train_probe_local(layer_repr_train, labels_train, layer_repr_eval, labels_eval, name):
+
+    X_train = torch.stack([r.squeeze(0) for r in layer_repr_train]).to(torch.float32)
+    y_train = torch.tensor([l for (l, m) in labels_train], dtype=torch.float32)
+    m_train = torch.tensor([m for (l, m) in labels_train], dtype=torch.float32)
+
+    X_eval = torch.stack([r.squeeze(0) for r in layer_repr_eval]).to(torch.float32)
+    y_eval = torch.tensor([l for (l, m) in labels_eval], dtype=torch.float32)
+    m_eval = torch.tensor([m for (l, m) in labels_eval], dtype=torch.float32)
+
+    dataset_train = TensorDataset(X_train, y_train, m_train)
+    dataset_eval = TensorDataset(X_eval, y_eval, m_eval)
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    num_labels = len(load_category_ds()[1])
+
+    emb_dim = layer_repr_train[0].shape[0]
+    model_head, criterion, optimizer = build_classifier_category(emb_dim, num_labels, device, lr=1e-3, dropout=0.1)
+
+    config = RunConfig_category(
+        model_name=name,
+        device=device,
+        lr=1e-3,
+        dropout=0.1,
+        epochs=20,
+        log_interval=20,
+        mixed_precision=False
+    )
+
+    train_loader = DataLoader(dataset_train,  batch_size=16, shuffle=True)
+    eval_loader = DataLoader(dataset_eval, batch_size=16, shuffle=False)
+
+    trainer = Trainer_category(model_head, criterion, optimizer, config)
     trainer.fit(train_loader, eval_loader)
 
 def list_subfolders(directory):
@@ -255,3 +293,6 @@ def load_captions_prompt():
     with open("src/prompts/global_features.txt", "r") as f:
         return f.read().strip()
 
+def load_categories_prompt():
+    with open("src/prompts/local_features.txt", "r") as f:
+        return f.read().strip()
