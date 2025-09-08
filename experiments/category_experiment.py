@@ -3,6 +3,7 @@ import torch
 from tqdm import tqdm
 import gc # Import the garbage collection module
 
+from src.vllm.fastvlm import FastVLM
 from src.vllm.qwen import QwenVLProbe
 from src.vllm.automodel import AutoModelVLM
 from src.utils.experiment_utils import  get_repr_batch, get_repr_for_layer, train_probe_local, load_category_ds, load_categories_prompt
@@ -23,7 +24,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 model_configs = {
     "exp2_1/Qwen_Qwen2-VL-2B-Instruct": ("Qwen/Qwen2-VL-2B-Instruct", QwenVLProbe),
     "exp2_2/google_gemma-3-4b-it": ("google/gemma-3-4b-it", AutoModelVLM),
-    "exp2_3/microsoft_Phi-4-multimodal-instruct": ("microsoft/Phi-4-multimodal-instruct", AutoModelVLM)
+    "exp2_3/apple_fast_vlm": ("apple/FastVLM-0.5B", FastVLM)
 }
 
 
@@ -63,8 +64,8 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
     imgs_eval = []
 
     # Added to shuffle the dataset of local semantics
-    ds_train_sample = ds_train.shuffle().select(range(7000))
-    ds_eval_sample = ds_eval.shuffle().select(range(700))
+    ds_train_sample = ds_train.shuffle().select(range(30000))
+    ds_eval_sample = ds_eval.shuffle().select(range(3000))
 
     # Added to calculate the length of sampled dataset of local semantics
     num_dataset_train = len(ds_train_sample)
