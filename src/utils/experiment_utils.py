@@ -10,9 +10,9 @@ sys.path.insert(0, "../")
 
 import torch
 from src.data.dataset_loader import DSLoader
-from src.probes.classifier import build_classifier
+from src.probes.classifier_captions import build_classifier
 from src.probes.classifier_category import build_classifier_category
-from src.probes.trainer import Trainer, RunConfig
+from src.probes.trainer_captions import TrainerCaptions, RunConfig
 from src.probes.trainer_category import Trainer_category, RunConfig_category
 import torch
 from torch.utils.data import DataLoader, TensorDataset
@@ -163,7 +163,7 @@ def train_probe(layer_repr_train, labels_train,layer_repr_eval,labels_eval,name)
     train_loader = DataLoader(dataset_train,  batch_size=16, shuffle=True)
     eval_loader = DataLoader(dataset_eval, batch_size=16, shuffle=False)
 
-    trainer = Trainer(model_head, criterion, optimizer, config)
+    trainer = TrainerCaptions(model_head, criterion, optimizer, config)
     trainer.fit(train_loader, eval_loader)
 
 def train_probe_local(layer_repr_train, labels_train, layer_repr_eval, labels_eval, name):
