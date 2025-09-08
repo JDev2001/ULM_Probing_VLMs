@@ -12,5 +12,4 @@ models = [
 
 
 for model_name in models:
-
     create_plots(f"artifacts/{model_name}",f"report/figures/{model_name}")

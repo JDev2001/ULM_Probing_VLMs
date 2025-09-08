@@ -5,6 +5,7 @@ import gc # Import the garbage collection module
 
 from src.vllm.qwen import QwenVLProbe
 from src.vllm.automodel import AutoModelVLM
+from src.vllm.fastvlm import FastVLM
 from src.utils.experiment_utils import  get_repr_batch, get_repr_for_layer, train_probe, load_captions_prompt, load_caption_ds
 
 
@@ -20,9 +21,10 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 model_configs = {
-  #  "exp1/Qwen_Qwen2-VL-2B-Instruct": ("Qwen/Qwen2-VL-2B-Instruct", QwenVLProbe),
-#    "exp2/google_gemma-3-4b-it": ("google/gemma-3-4b-it", AutoModelVLM),
-    "exp3/microsoft_Phi-4-multimodal-instruct": ("microsoft/Phi-4-multimodal-instruct", AutoModelVLM)
+    "exp1_1/Qwen_Qwen2-VL-2B-Instruct": ("Qwen/Qwen2-VL-2B-Instruct", QwenVLProbe),
+    "exp1_2/google_gemma-3-4b-it": ("google/gemma-3-4b-it", AutoModelVLM),
+    "exp1_3/apple_fast_vlm": ("apple/FastVLM-0.5B", FastVLM)
+    #"test/test": ("apple/FastVLM-0.5B", FastVLM)
 }
 
 
@@ -32,7 +34,7 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
     print(f"Processing {experiment_name}")
     print("----------------------------------------------------")
 
-  
+
     print(f"Loading model: {model_hf_name}...")
     model = model_class(model_name=model_hf_name, device=device)
     print("Model loaded.")
@@ -47,14 +49,14 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
     prompts_eval = []
     imgs_eval = []
 
- 
-    ds_train_sample = ds_train.shuffle().select(range(7000))
-    ds_eval_sample = ds_eval.shuffle().select(range(700))
+
+    ds_train_sample = ds_train.shuffle().select(range(30000))
+    ds_eval_sample = ds_eval.shuffle().select(range(3000))
 
     num_dataset_train = len(ds_train_sample)
     num_dataset_eval = len(ds_eval_sample)
 
-    if False: # Testmode
+    if True: # Testmode
         num_dataset_train = 1
         num_dataset_eval = 1
 
@@ -103,15 +105,14 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
         run_name = f"{experiment_name}_Test_layer{layer}"
         train_probe(layer_repr, labels_train, layer_repr_eval, labels_eval, run_name)
 
-  
+
     print(f"Finished processing {experiment_name}. Releasing resources.")
     del model
     del repr_train
     del reprs_eval
 
-    
-    gc.collect() 
+
+    gc.collect()
     if device == "cuda":
         torch.cuda.empty_cache() # Release cached memory on the GPU
     print("Resources released. Moving to next model.\n")
-

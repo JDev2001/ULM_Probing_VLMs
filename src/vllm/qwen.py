@@ -13,7 +13,9 @@ from PIL import Image
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 from qwen_vl_utils import process_vision_info
+from src.utils.experiment_utils import pool_tokens
 from src.utils.image_utils import resize_image_aspect_ratio
+from src.utils.pre_materialize import _prematerialize_examples_inline
 from src.vllm.vllm import VLLM
 from tqdm import tqdm
 
@@ -36,22 +38,10 @@ class QwenVLProbe(VLLM):
         *,
         max_length: int = 256,   # conservative cap to limit quadratic attention cost
         use_sdpa: bool = True,   # use PyTorch SDPA path (stable fast path on 4090)
-        premat_workers: int = 64,
-        premat_retries: int = 2,
-        premat_retry_sleep: float = 0.3,
-        premat_target_img_size: int = 300,
-        premat_progress: bool = True
     ):
         self.device = device
         self.max_length = int(max_length)
         self.model_name = model_name
-
-        # Pre-materialization config
-        self._premat_workers = int(premat_workers)
-        self._premat_retries = int(premat_retries)
-        self._premat_retry_sleep = float(premat_retry_sleep)
-        self._premat_target_img_size = int(premat_target_img_size)
-        self._premat_progress = bool(premat_progress)
 
         # Prefer BF16 on 4090; fall back to FP16 on non-bfloat hardware
         dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float16
@@ -76,176 +66,8 @@ class QwenVLProbe(VLLM):
         self.n_layers = getattr(self.model.config, "num_hidden_layers", None)
         self.d_model  = getattr(self.model.config, "hidden_size", None)
 
-    # --------------------------- Pre-materialization (inline/private) ---------------------------
-
-    @staticmethod
-    def _has_prematerialized_fields(ex: Dict) -> bool:
-        """Check if an example already contains pre-materialized fields."""
-        return ("_pre_chat_text" in ex) and ("_pre_images" in ex) and ("_pre_videos" in ex)
-
-    def _process_single_example_premat(
-        self,
-        ex: Dict,
-    ) -> Dict:
-        """
-        Process one example once: download images via process_vision_info, resize, cache chat template.
-        Adds fields:
-            - _pre_chat_text: str
-            - _pre_images: List[PIL.Image.Image]
-            - _pre_videos: List[Any]
-        Robust against network/image errors.
-        """
-        out = ex  # in-place augmentation
-
-        # Defaults
-        out["_pre_images"] = []
-        out["_pre_videos"] = []
-        out["_pre_chat_text"] = None
-
-        if "messages" in ex and isinstance(ex["messages"], list):
-            # Cache chat template
-            out["_pre_chat_text"] = self.processor.apply_chat_template(
-                ex["messages"], tokenize=False, add_generation_prompt=False
-            )
-            # Vision: process with light retries
-            imgs, vids = [], []
-            last_err = None
-            for _ in range(max(1, self._premat_retries)):
-                try:
-                    imgs, vids = process_vision_info(ex["messages"])
-                    last_err = None
-                    break
-                except Exception as e:
-                    last_err = e
-                    time.sleep(self._premat_retry_sleep)
-            if last_err is not None:
-                imgs, vids = [], []
-
-            # Resize once per image
-            if imgs:
-                try:
-                    imgs = [resize_image_aspect_ratio(img, target_size=self._premat_target_img_size) for img in imgs]
-                except Exception:
-                    imgs = []
-
-            out["_pre_images"] = imgs or []
-            out["_pre_videos"] = vids or []
-        else:
-            # Text-only convenience
-            text = str(ex.get("text", ""))
-            out["_pre_chat_text"] = text
-            out["_pre_images"] = []
-            out["_pre_videos"] = []
-
-        return out
-
-    def _prematerialize_examples_inline(self, examples: List[Dict]) -> List[Dict]:
-        """
-        Run pre-materialization only if required (i.e., if _pre_* keys are missing).
-        Uses a thread pool for I/O-bound work. Returns the same list with augmented dicts.
-        """
-        # Fast path: if all examples are already pre-materialized, return as-is
-        if all(self._has_prematerialized_fields(ex) for ex in examples):
-            return examples
-
-        # Short lists: do it synchronously
-        if len(examples) <= 2:
-            return [self._process_single_example_premat(ex) for ex in examples]
-
-        results: List[Optional[Dict]] = [None] * len(examples)
-        to_process = [i for i, ex in enumerate(examples) if not self._has_prematerialized_fields(ex)]
-
-        if not to_process:
-            return examples
-
-        with ThreadPoolExecutor(max_workers=self._premat_workers) as pool:
-            futures = {
-                pool.submit(self._process_single_example_premat, examples[i]): i
-                for i in to_process
-            }
-            iterator = as_completed(futures)
-            if self._premat_progress:
-                iterator = tqdm(iterator, total=len(to_process), desc="Pre-materializing media", leave=False)
-
-            for fut in iterator:
-                i = futures[fut]
-                try:
-                    results[i] = fut.result()
-                except Exception:
-                    # On failure, fall back to text-only
-                    ex = examples[i]
-                    try:
-                        pre_text = self.processor.apply_chat_template(
-                            ex["messages"], tokenize=False, add_generation_prompt=False
-                        ) if "messages" in ex and isinstance(ex["messages"], list) else str(ex.get("text", ""))
-                    except Exception:
-                        pre_text = str(ex.get("text", ""))
-                    ex["_pre_chat_text"] = pre_text
-                    ex["_pre_images"] = []
-                    ex["_pre_videos"] = []
-                    results[i] = ex
-
-        # Merge results back; already pre-materialized examples remain unchanged
-        for i in range(len(examples)):
-            if results[i] is not None:
-                examples[i] = results[i]
-            elif not self._has_prematerialized_fields(examples[i]):
-                # Ensure minimal keys are present
-                ex = examples[i]
-                try:
-                    pre_text = self.processor.apply_chat_template(
-                        ex["messages"], tokenize=False, add_generation_prompt=False
-                    ) if "messages" in ex and isinstance(ex["messages"], list) else str(ex.get("text", ""))
-                except Exception:
-                    pre_text = str(ex.get("text", ""))
-                ex["_pre_chat_text"] = pre_text
-                ex["_pre_images"] = []
-                ex["_pre_videos"] = []
-
-        return examples
-
     # --------------------------- Batching & pooling ---------------------------
 
-    @staticmethod
-    def _pool_tokens(
-        layer_tensor: torch.Tensor,         # [B, S, H]
-        attn_mask: Optional[torch.Tensor],  # [B, S] or None
-        mode: str,
-    ) -> torch.Tensor:
-        """Vectorized pooling across the batch. Returns: [B, H]."""
-        B, S, H = layer_tensor.shape
-        device = layer_tensor.device
-        if attn_mask is None:
-            attn_mask = torch.ones((B, S), dtype=torch.long, device=device)
-
-        lengths = attn_mask.sum(dim=1).clamp_min(1)  # [B]
-
-        if mode == "CLS":
-            return layer_tensor[:, 0, :]
-
-        if mode == "mean":
-            mask = attn_mask.unsqueeze(-1)
-            summed = (layer_tensor * mask).sum(dim=1)
-            return summed / lengths.unsqueeze(-1)
-
-        if mode == "max":
-            very_neg = torch.finfo(layer_tensor.dtype).min
-            masked = layer_tensor.clone()
-            masked[attn_mask == 0] = very_neg
-            return masked.max(dim=1).values
-
-        if mode.startswith("token_index_"):
-            try:
-                idx = int(mode.split("_")[-1])
-            except Exception:
-                idx = 0
-            clamped = torch.clamp(torch.full_like(lengths, idx), min=0, max=(lengths - 1))
-            gather_index = clamped.view(B, 1, 1).expand(B, 1, H)
-            return layer_tensor.gather(dim=1, index=gather_index).squeeze(1)
-
-        # Default: last non-padding token
-        last_idx = (lengths - 1).view(B, 1, 1).expand(B, 1, H)
-        return layer_tensor.gather(dim=1, index=last_idx).squeeze(1)
 
     def _prepare_batch(
         self,
@@ -312,7 +134,7 @@ class QwenVLProbe(VLLM):
         """
 
         # Step 1: Pre-materialize (only once per call; no API change)
-        examples = self._prematerialize_examples_inline(examples)
+        examples = _prematerialize_examples_inline(examples,self.processor)
 
         all_hidden_states: List[torch.Tensor] = []
         all_labels: List[int] = []
@@ -332,7 +154,7 @@ class QwenVLProbe(VLLM):
 
             pooled_layers: List[torch.Tensor] = []
             for layer_tensor in hidden_states:
-                pooled = self._pool_tokens(layer_tensor, attn_mask, output_layer)  # [B, H]
+                pooled = pool_tokens(layer_tensor, attn_mask, output_layer)  # [B, H]
                 pooled_layers.append(pooled)
 
             batch_stack = torch.stack(pooled_layers, dim=1)  # [B, L, H]
