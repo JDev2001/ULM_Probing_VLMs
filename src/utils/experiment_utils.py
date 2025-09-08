@@ -1,5 +1,6 @@
 import importlib
 import math
+from typing import Optional
 import numpy as np
 import os, sys
 
@@ -7,8 +8,6 @@ from pyparsing import col
 os.environ["PYTHONPATH"] = "../"
 sys.path.insert(0, "../")
 
-from src.vllm.qwen import QwenVLProbe
-from src.vllm.automodel import AutoModelVLM
 import torch
 from src.data.dataset_loader import DSLoader
 from src.probes.classifier import build_classifier
@@ -23,6 +22,47 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
 
+
+
+def pool_tokens(
+        layer_tensor: torch.Tensor,         # [B, S, H]
+        attn_mask: Optional[torch.Tensor],  # [B, S] or None
+        mode: str,
+    ) -> torch.Tensor:
+        """Vectorized pooling across the batch. Returns: [B, H]."""
+        B, S, H = layer_tensor.shape
+        device = layer_tensor.device
+        if attn_mask is None:
+            attn_mask = torch.ones((B, S), dtype=torch.long, device=device)
+
+        lengths = attn_mask.sum(dim=1).clamp_min(1)  # [B]
+
+        if mode == "CLS":
+            return layer_tensor[:, 0, :]
+
+        if mode == "mean":
+            mask = attn_mask.unsqueeze(-1)
+            summed = (layer_tensor * mask).sum(dim=1)
+            return summed / lengths.unsqueeze(-1)
+
+        if mode == "max":
+            very_neg = torch.finfo(layer_tensor.dtype).min
+            masked = layer_tensor.clone()
+            masked[attn_mask == 0] = very_neg
+            return masked.max(dim=1).values
+
+        if mode.startswith("token_index_"):
+            try:
+                idx = int(mode.split("_")[-1])
+            except Exception:
+                idx = 0
+            clamped = torch.clamp(torch.full_like(lengths, idx), min=0, max=(lengths - 1))
+            gather_index = clamped.view(B, 1, 1).expand(B, 1, H)
+            return layer_tensor.gather(dim=1, index=gather_index).squeeze(1)
+
+        # Default: last non-padding token
+        last_idx = (lengths - 1).view(B, 1, 1).expand(B, 1, H)
+        return layer_tensor.gather(dim=1, index=last_idx).squeeze(1)
 
 def load_category_ds():
     ds_loader = DSLoader(split="train")
