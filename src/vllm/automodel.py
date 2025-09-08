@@ -160,11 +160,11 @@ class AutoModelVLM(VLLM):
             msgs = ex["messages"]
 
             # Build chat text (Phi-4 may require placeholders)
-            # if "phi-4" in self.model_name.lower():
-            #     adapted, _ = self._adapt_messages_to_phi(msgs)
-            #     chat_text = self._apply_chat_template_safe(adapted)
-            # else:
-            chat_text = self._apply_chat_template_safe(msgs)
+            if "phi-4" in self.model_name.lower():
+                adapted, _ = self._adapt_messages_to_phi(msgs)
+                chat_text = self._apply_chat_template_safe(adapted)
+            else:
+                chat_text = self._apply_chat_template_safe(msgs)
 
             # Vision: process with light retries
             imgs, vids = [], []
@@ -175,6 +175,7 @@ class AutoModelVLM(VLLM):
                     last_err = None
                     break
                 except Exception as e:
+                    print(f"Error processing vision info: {e}")
                     last_err = e
                     time.sleep(self._premat_retry_sleep)
             if last_err is not None:

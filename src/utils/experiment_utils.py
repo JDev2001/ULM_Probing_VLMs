@@ -52,17 +52,16 @@ def get_repr_batch(model,texts,imgs):
             }
         ]
         examples.append({"label": 0, "messages": messages})
-    try:
-        hidden_out, label_out = model.get_hidden_states_batched(
-            examples=examples,
-            # output_layer="last_non_padding",
-            output_layer="mean",
-            return_layer=None,
-            batch_size=8,
-        )
-        return hidden_out, label_out
-    except Exception as e:
-        return [], []
+
+    hidden_out, label_out = model.get_hidden_states_batched(
+        examples=examples,
+        # output_layer="last_non_padding",
+        output_layer="mean",
+        return_layer=None,
+        batch_size=8,
+    )
+    return hidden_out, label_out
+
 
 def get_repr(model,text,img):
     device = "cuda" if torch.cuda.is_available() else "cpu"

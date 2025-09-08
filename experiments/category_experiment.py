@@ -21,9 +21,9 @@ ds_eval = ds['test']
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model_configs = {
-    "exp1/Qwen_Qwen2-VL-2B-Instruct": ("Qwen/Qwen2-VL-2B-Instruct", QwenVLProbe),
-    "exp2/google_gemma-3-4b-it": ("google/gemma-3-4b-it", AutoModelVLM),
-    "exp3/microsoft_Phi-4-multimodal-instruct": ("microsoft/Phi-4-multimodal-instruct", AutoModelVLM)
+    "exp2_1/Qwen_Qwen2-VL-2B-Instruct": ("Qwen/Qwen2-VL-2B-Instruct", QwenVLProbe),
+    "exp2_2/google_gemma-3-4b-it": ("google/gemma-3-4b-it", AutoModelVLM),
+    "exp2_3/microsoft_Phi-4-multimodal-instruct": ("microsoft/Phi-4-multimodal-instruct", AutoModelVLM)
 }
 
 
@@ -63,8 +63,8 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
     imgs_eval = []
 
     # Added to shuffle the dataset of local semantics
-    ds_train_sample = ds_train.shuffle().select(range(10000))
-    ds_eval_sample = ds_eval.shuffle().select(range(10000))
+    ds_train_sample = ds_train.shuffle().select(range(7000))
+    ds_eval_sample = ds_eval.shuffle().select(range(700))
 
     # Added to calculate the length of sampled dataset of local semantics
     num_dataset_train = len(ds_train_sample)
