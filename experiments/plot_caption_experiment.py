@@ -5,8 +5,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from tueplots import bundles
 
-
 plt.rcParams.update(bundles.icml2022())
+plt.rcParams["savefig.dpi"] = 300
+
+
+PLOT_SIZE = (5, 2)          # Default size for line plots
+WIDE_PLOT_SIZE = (7, 4)     # Default size for grouped bar plots
+COMBINED_MIN_WIDTH = 5      # Min width for cross-model plot
+COMBINED_WIDTH_PER_LAYER = 0.2
+COMBINED_HEIGHT = 3
 
 
 def ensure_dir(path: Path) -> Path:
@@ -120,7 +127,7 @@ def aggregate_metrics(dir_path: Path, split: str) -> dict:
 
 def plot_loss_per_layer(x, xticks_labels, losses, save_path: Path) -> None:
     """Plot loss per layer and save as PNG."""
-    plt.figure(figsize=(10, 4))
+    plt.figure(figsize=PLOT_SIZE)
     plt.plot(x, losses, marker="o")
     plt.xticks(x, xticks_labels, rotation=45, ha="right")
     plt.xlabel("Layer")
@@ -133,7 +140,7 @@ def plot_loss_per_layer(x, xticks_labels, losses, save_path: Path) -> None:
 
 def plot_classification_metrics(x, xticks_labels, accs, precs, recalls, f1s, save_path: Path) -> None:
     """Plot classification metrics per layer and save as PNG."""
-    plt.figure(figsize=(10, 4))
+    plt.figure(figsize=PLOT_SIZE)
     plt.plot(x, accs, marker="o", label="Accuracy")
     plt.plot(x, precs, marker="o", label="Precision")
     plt.plot(x, recalls, marker="o", label="Recall")
@@ -151,7 +158,7 @@ def plot_classification_metrics(x, xticks_labels, accs, precs, recalls, f1s, sav
 def plot_confusion_counts(x, xticks_labels, tps, fps, fns, tns, save_path: Path) -> None:
     """Plot grouped bar chart for TP/FP/FN/TN per layer and save as PNG."""
     width = 0.2
-    plt.figure(figsize=(12, 5))
+    plt.figure(figsize=WIDE_PLOT_SIZE)
 
     x_tp = [i - 1.5 * width for i in x]
     x_fp = [i - 0.5 * width for i in x]
@@ -173,9 +180,6 @@ def plot_confusion_counts(x, xticks_labels, tps, fps, fns, tns, save_path: Path)
     plt.close()
 
 
-# ----------------------------
-# NEW: Cross-model accuracy histogram (per layer)
-# ----------------------------
 def aggregate_model_accuracies(
     base_dir: Path,
     model_dirs: list[str],
@@ -193,7 +197,6 @@ def aggregate_model_accuracies(
     for m_dir, m_name in zip(model_dirs, model_names):
         data = aggregate_metrics(base_dir / m_dir, split)
         if not data["accs"]:
-            # Skip models with no data
             continue
         model_to_accs[m_name] = data["accs"]
         layer_counts.append(len(data["accs"]))
@@ -201,7 +204,6 @@ def aggregate_model_accuracies(
     if not model_to_accs:
         return [], {}
 
-    # Align by minimum number of layers found across models
     min_layers = min(layer_counts)
     aligned = {name: accs[:min_layers] for name, accs in model_to_accs.items()}
     layer_labels = [str(i) for i in range(min_layers)]
@@ -229,9 +231,9 @@ def plot_accuracy_histogram_per_layer(
     total_width = 0.8  # total width allocated to each layer's group
     bar_width = total_width / max(1, num_models)
 
-    plt.figure(figsize=(max(10, num_layers * 0.7), 5))
+    fig_width = max(COMBINED_MIN_WIDTH, num_layers * COMBINED_WIDTH_PER_LAYER)
+    plt.figure(figsize=(fig_width, COMBINED_HEIGHT))
 
-    # Center the group at each x and offset each model within the group
     offsets = [
         (-total_width / 2) + (i + 0.5) * bar_width
         for i in range(num_models)
@@ -251,9 +253,6 @@ def plot_accuracy_histogram_per_layer(
     plt.close()
 
 
-# ----------------------------
-# Orchestration
-# ----------------------------
 def create_plots(dir_path, save_path, split: str = "val_epoch") -> None:
     """
     Read per-subfolder training_log.csv files, pick the last row for the given split,
@@ -283,21 +282,16 @@ def create_plots(dir_path, save_path, split: str = "val_epoch") -> None:
 
 
 if __name__ == "__main__":
-    # Directory names (relative to artifacts/) that hold per-layer subfolders
     models = [
         "exp1/",
         "exp2/",
         "exp3/",
-        # "test/",
     ]
-    # Display names used in legends
     model_names = ["Gemma-3-4B", "Qwen2-VL-2B", "FastVLM-0.5B"]
 
-    # Per-model plots (unchanged)
     for model_dir in models:
         create_plots(f"artifacts/{model_dir}", f"report/figures/{model_dir}")
 
-    # NEW: Cross-model accuracy histogram per layer
     base_dir = Path("artifacts")
     combined_save = ensure_dir(Path("report/figures/_combined"))
     layer_labels, model_to_accs = aggregate_model_accuracies(
