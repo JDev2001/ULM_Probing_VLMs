@@ -19,7 +19,7 @@
 
 % This assumes your files are encoded as UTF8
 \usepackage[utf8]{inputenc}
-
+\usepackage{float}
 % This is not strictly necessary, and may be commented out.
 % However, it will improve the layout of the manuscript,
 % and will typically save some space.
@@ -30,6 +30,7 @@
 % the typewriter font.
 \usepackage{inconsolata}
 
+\usepackage{graphicx}
 
 % If the title and author information does not fit in the area allocated, uncomment the following
 %
@@ -133,6 +134,36 @@ models of different architectures and scales.
 
 
 \section{Results}
+To evaluate the performance of the probing classifiers across different layers
+and models, we generated a series of plots that visualize key metrics.
+For the caption experiment, which focuses on global semantic features, the accuracy per layer
+across all three models is shown in Figure~\ref{fig:accuracy_per_layer}. Thus the positive and negative examples are balanced, a random baseline would achieve 50\% accuracy.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/global/_combined/accuracy_lines_per_layer.png}
+    \caption{Accuracy per layer across all three models.}
+    \label{fig:accuracy_per_layer}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/global/_combined/precision_heatmap.png}
+    \caption{Precision per layer across all three models.}
+    \label{fig:precision_per_layer}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/global/_combined/recall_heatmap.png}
+    \caption{Recall per layer across all three models.}
+    \label{fig:recall_per_layer}
+\end{figure}
+
+
+
+
+
+
 \section{Discussion}
 \section{Conclusion}
 

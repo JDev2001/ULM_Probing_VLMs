@@ -4,9 +4,17 @@ from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 from tueplots import bundles
-
+import numpy as np
 
 plt.rcParams.update(bundles.icml2022())
+plt.rcParams["savefig.dpi"] = 300
+
+
+PLOT_SIZE = (5, 2)            # Default size for line plots
+WIDE_PLOT_SIZE = (7, 4)       # Default size for grouped bar plots
+COMBINED_MIN_WIDTH = 3.5      # Min width for cross-model plot
+COMBINED_WIDTH_PER_LAYER = 0.08
+COMBINED_HEIGHT = 2.3
 
 
 def ensure_dir(path: Path) -> Path:
@@ -120,7 +128,7 @@ def aggregate_metrics(dir_path: Path, split: str) -> dict:
 
 def plot_loss_per_layer(x, xticks_labels, losses, save_path: Path) -> None:
     """Plot loss per layer and save as PNG."""
-    plt.figure(figsize=(10, 4))
+    plt.figure(figsize=PLOT_SIZE)
     plt.plot(x, losses, marker="o")
     plt.xticks(x, xticks_labels, rotation=45, ha="right")
     plt.xlabel("Layer")
@@ -133,11 +141,12 @@ def plot_loss_per_layer(x, xticks_labels, losses, save_path: Path) -> None:
 
 def plot_classification_metrics(x, xticks_labels, accs, precs, recalls, f1s, save_path: Path) -> None:
     """Plot classification metrics per layer and save as PNG."""
-    plt.figure(figsize=(10, 4))
+    plt.figure(figsize=PLOT_SIZE)
     plt.plot(x, accs, marker="o", label="Accuracy")
     plt.plot(x, precs, marker="o", label="Precision")
     plt.plot(x, recalls, marker="o", label="Recall")
     plt.plot(x, f1s, marker="o", label="F1")
+    plt.axhline(0.5, color="gray", linestyle="--", linewidth=1, label="Baseline (0.5)")
     plt.xticks(x, xticks_labels, rotation=45, ha="right")
     plt.xlabel("Layer")
     plt.ylabel("Score")
@@ -151,7 +160,7 @@ def plot_classification_metrics(x, xticks_labels, accs, precs, recalls, f1s, sav
 def plot_confusion_counts(x, xticks_labels, tps, fps, fns, tns, save_path: Path) -> None:
     """Plot grouped bar chart for TP/FP/FN/TN per layer and save as PNG."""
     width = 0.2
-    plt.figure(figsize=(12, 5))
+    plt.figure(figsize=WIDE_PLOT_SIZE)
 
     x_tp = [i - 1.5 * width for i in x]
     x_fp = [i - 0.5 * width for i in x]
@@ -173,9 +182,6 @@ def plot_confusion_counts(x, xticks_labels, tps, fps, fns, tns, save_path: Path)
     plt.close()
 
 
-# ----------------------------
-# NEW: Cross-model accuracy histogram (per layer)
-# ----------------------------
 def aggregate_model_accuracies(
     base_dir: Path,
     model_dirs: list[str],
@@ -193,7 +199,6 @@ def aggregate_model_accuracies(
     for m_dir, m_name in zip(model_dirs, model_names):
         data = aggregate_metrics(base_dir / m_dir, split)
         if not data["accs"]:
-            # Skip models with no data
             continue
         model_to_accs[m_name] = data["accs"]
         layer_counts.append(len(data["accs"]))
@@ -201,49 +206,142 @@ def aggregate_model_accuracies(
     if not model_to_accs:
         return [], {}
 
-    # Align by minimum number of layers found across models
     min_layers = min(layer_counts)
     aligned = {name: accs[:min_layers] for name, accs in model_to_accs.items()}
     layer_labels = [str(i) for i in range(min_layers)]
     return layer_labels, aligned
 
 
-def plot_accuracy_histogram_per_layer(
+# ---------------------- NEW: generic aggregation + heatmap plotting ----------------------
+
+def aggregate_model_metric(
+    base_dir: Path,
+    model_dirs: list[str],
+    model_names: list[str],
+    split: str,
+    metric_key: str,
+) -> tuple[list[str], dict[str, list[float]]]:
+    """
+    Aggregate per-layer values for a given metric across multiple models.
+    metric_key in {"accuracy", "precision", "recall", "f1"}.
+    Returns (layer_labels, {model_name: values_per_layer}), aligned to min common depth.
+    """
+    keymap = {
+        "accuracy": "accs",
+        "precision": "precs",
+        "recall": "recalls",
+        "f1": "f1s",
+    }
+    if metric_key not in keymap:
+        raise ValueError(f"Unsupported metric_key: {metric_key}")
+
+    model_to_vals: dict[str, list[float]] = {}
+    layer_counts = []
+
+    for m_dir, m_name in zip(model_dirs, model_names):
+        data = aggregate_metrics(base_dir / m_dir, split)
+        vals = data[keymap[metric_key]]
+        if not vals:
+            continue
+        model_to_vals[m_name] = vals
+        layer_counts.append(len(vals))
+
+    if not model_to_vals:
+        return [], {}
+
+    min_layers = min(layer_counts)
+    aligned = {name: vals[:min_layers] for name, vals in model_to_vals.items()}
+    layer_labels = [str(i) for i in range(min_layers)]
+    return layer_labels, aligned
+
+def plot_metric_heatmap(
+    layer_labels: list[str],
+    model_to_vals: dict[str, list[float]],
+    save_path: Path,
+    filename: str,
+    title: str,
+    annotate: bool = True,
+) -> None:
+    """
+    Plot a heatmap (models x layers) for a metric in [0,1].
+    Uses constrained layout to avoid tight_layout/colorbar conflicts.
+    """
+    if not layer_labels or not model_to_vals:
+        print(f"No data for heatmap: {title}")
+        return
+
+    ensure_dir(save_path)
+
+    model_names = list(model_to_vals.keys())
+    num_models = len(model_names)
+    num_layers = len(layer_labels)
+
+    # Build matrix (models x layers)
+    mat = np.array([model_to_vals[m][:num_layers] for m in model_names], dtype=float)
+
+    # Figure size
+    fig_width = max(COMBINED_MIN_WIDTH, num_layers * COMBINED_WIDTH_PER_LAYER)
+    fig_height = max(1.8, 1.0 + 0.3 * num_models)
+
+    # Use constrained layout and axes objects
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height), layout="constrained")
+
+    im = ax.imshow(mat, aspect="auto", vmin=0.0, vmax=1.0)
+
+    ax.set_xticks(np.arange(num_layers), labels=layer_labels, rotation=45, ha="right")
+    ax.set_yticks(np.arange(num_models), labels=model_names)
+    ax.set_xlabel("Layer")
+    ax.set_ylabel("Model")
+    ax.set_title(title)
+
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.set_label("Score", rotation=90)
+
+    if annotate and num_layers <= 30 and num_models <= 12:
+        for i in range(num_models):
+            for j in range(num_layers):
+                val = mat[i, j]
+                if np.isfinite(val):
+                    ax.text(j, i, f"{val:.2f}", ha="center", va="center", fontsize=7)
+
+    fig.savefig(save_path / filename)
+    plt.close(fig)
+
+
+def plot_accuracy_lines_per_layer(
     layer_labels: list[str],
     model_to_accs: dict[str, list[float]],
     save_path: Path,
-    filename: str = "accuracy_histogram_per_layer.png",
+    filename: str = "accuracy_lines_per_layer.png",
     title: str = "Accuracy per Layer across Models"
 ) -> None:
-    """Create a grouped bar chart showing accuracy per layer for each model."""
+    """
+    Create a line plot showing accuracy per layer for each model.
+    Each model is represented as a separate line.
+    Y-axis is fixed to [0, 1].
+    """
     if not layer_labels or not model_to_accs:
-        print("No data for cross-model histogram.")
+        print("No data for cross-model line plot.")
         return
 
     ensure_dir(save_path)
 
     num_layers = len(layer_labels)
-    num_models = len(model_to_accs)
-
     x = list(range(num_layers))
-    total_width = 0.8  # total width allocated to each layer's group
-    bar_width = total_width / max(1, num_models)
 
-    plt.figure(figsize=(max(10, num_layers * 0.7), 5))
+    fig_width = max(COMBINED_MIN_WIDTH, num_layers * COMBINED_WIDTH_PER_LAYER)
+    plt.figure(figsize=(fig_width, COMBINED_HEIGHT))
 
-    # Center the group at each x and offset each model within the group
-    offsets = [
-        (-total_width / 2) + (i + 0.5) * bar_width
-        for i in range(num_models)
-    ]
+    for model_name, accs in model_to_accs.items():
+        plt.plot(x, accs[:num_layers], marker="o", label=model_name)
 
-    for offset, (model_name, accs) in zip(offsets, model_to_accs.items()):
-        positions = [xi + offset for xi in x]
-        plt.bar(positions, accs[:num_layers], width=bar_width, label=model_name)
+    # Add baseline line
+    plt.axhline(0.5, color="gray", linestyle="--", linewidth=1, label="Baseline (0.5)")
 
     plt.xticks(x, layer_labels, rotation=45, ha="right")
     plt.xlabel("Layer")
     plt.ylabel("Accuracy")
+    plt.ylim(0, 1)   # <-- fix axis from 0 to 1
     plt.title(title)
     plt.legend()
     plt.tight_layout()
@@ -251,9 +349,7 @@ def plot_accuracy_histogram_per_layer(
     plt.close()
 
 
-# ----------------------------
-# Orchestration
-# ----------------------------
+
 def create_plots(dir_path, save_path, split: str = "val_epoch") -> None:
     """
     Read per-subfolder training_log.csv files, pick the last row for the given split,
@@ -283,33 +379,53 @@ def create_plots(dir_path, save_path, split: str = "val_epoch") -> None:
 
 
 if __name__ == "__main__":
-    # Directory names (relative to artifacts/) that hold per-layer subfolders
     models = [
         "exp1/",
         "exp2/",
         "exp3/",
-        # "test/",
     ]
-    # Display names used in legends
     model_names = ["Gemma-3-4B", "Qwen2-VL-2B", "FastVLM-0.5B"]
 
-    # Per-model plots (unchanged)
     for model_dir in models:
-        create_plots(f"artifacts/{model_dir}", f"report/figures/{model_dir}")
+        ensure_dir(Path(f"report/figures/global/{model_dir}"))
+        create_plots(f"artifacts/{model_dir}", f"report/figures/global/{model_dir}")
 
-    # NEW: Cross-model accuracy histogram per layer
     base_dir = Path("artifacts")
-    combined_save = ensure_dir(Path("report/figures/_combined"))
+    combined_save = ensure_dir(Path("report/figures/global/_combined"))
+
+    # Combined line plot for accuracy
     layer_labels, model_to_accs = aggregate_model_accuracies(
         base_dir=base_dir,
         model_dirs=models,
         model_names=model_names,
         split="val_epoch",
     )
-    plot_accuracy_histogram_per_layer(
+    plot_accuracy_lines_per_layer(
         layer_labels=layer_labels,
         model_to_accs=model_to_accs,
         save_path=combined_save,
-        filename="accuracy_histogram_per_layer.png",
+        filename="accuracy_lines_per_layer.png",
         title="Accuracy per Layer across Models",
     )
+
+    # Heatmaps for Precision, Recall, F1
+    for metric_key, out_name, plot_title in [
+        ("precision", "precision_heatmap.png", "Precision per Layer across Models"),
+        ("recall",    "recall_heatmap.png",    "Recall per Layer across Models"),
+        ("f1",        "f1_heatmap.png",        "F1 per Layer across Models"),
+    ]:
+        layer_labels_m, model_to_vals = aggregate_model_metric(
+            base_dir=base_dir,
+            model_dirs=models,
+            model_names=model_names,
+            split="val_epoch",
+            metric_key=metric_key,
+        )
+        plot_metric_heatmap(
+            layer_labels=layer_labels_m,
+            model_to_vals=model_to_vals,
+            save_path=combined_save,
+            filename=out_name,
+            title=plot_title,
+            annotate=False,
+        )
