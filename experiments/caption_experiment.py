@@ -56,7 +56,7 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
     num_dataset_train = len(ds_train_sample)
     num_dataset_eval = len(ds_eval_sample)
 
-    if True: # Testmode
+    if False: # Testmode
         num_dataset_train = 1
         num_dataset_eval = 1
 
