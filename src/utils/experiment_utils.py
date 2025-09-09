@@ -16,7 +16,6 @@ from src.probes.trainer_captions import TrainerCaptions, RunConfig
 from src.probes.trainer_category import Trainer_category, RunConfig_category
 import torch
 from torch.utils.data import DataLoader, TensorDataset
-import src.vllm.qwen
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -98,7 +97,7 @@ def get_repr_batch(model,texts,imgs):
         # output_layer="last_non_padding",
         output_layer="mean",
         return_layer=None,
-        batch_size=2,
+        batch_size=8,
     )
     return hidden_out, label_out
 
