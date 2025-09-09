@@ -21,7 +21,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 model_configs = {
-    "exp1_1/Qwen_Qwen2-VL-2B-Instruct": ("Qwen/Qwen2-VL-2B-Instruct", QwenVLProbe),
+#    "exp1_1/Qwen_Qwen2-VL-2B-Instruct": ("Qwen/Qwen2-VL-2B-Instruct", QwenVLProbe),
     "exp1_2/google_gemma-3-4b-it": ("google/gemma-3-4b-it", AutoModelVLM),
     "exp1_3/apple_fast_vlm": ("apple/FastVLM-0.5B", FastVLM)
     #"test/test": ("apple/FastVLM-0.5B", FastVLM)
