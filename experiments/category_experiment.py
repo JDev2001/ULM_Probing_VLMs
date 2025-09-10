@@ -3,6 +3,7 @@ import torch
 from tqdm import tqdm
 import gc # Import the garbage collection module
 
+from src.utils.store_representations import save_repr
 from src.vllm.fastvlm import FastVLM
 from src.vllm.qwen import QwenVLProbe
 from src.vllm.automodel import AutoModelVLM
@@ -64,8 +65,8 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
     imgs_eval = []
 
     # Added to shuffle the dataset of local semantics
-    ds_train_sample = ds_train.shuffle().select(range(30000))
-    ds_eval_sample = ds_eval.shuffle().select(range(3000))
+    ds_train_sample = ds_train.shuffle().select(range(20000))
+    ds_eval_sample = ds_eval.shuffle().select(range(2000))
 
     # Added to calculate the length of sampled dataset of local semantics
     num_dataset_train = len(ds_train_sample)
@@ -104,6 +105,20 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
 
     for i in range(len(reprs_eval_batched)):
         reprs_eval.append(reprs_eval_batched[i])
+
+    save_repr(
+        representations=repr_train,
+        base_path="artifacts/repr",
+        experiment_name=experiment_name,
+        split_name="train"
+    )
+    save_repr(
+        representations=reprs_eval,
+        base_path="artifacts/repr",
+        experiment_name=experiment_name,
+        split_name="eval"
+    )
+
 
 
     print("Training probes for each layer")

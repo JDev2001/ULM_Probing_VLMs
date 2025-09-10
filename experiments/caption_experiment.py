@@ -3,6 +3,7 @@ import torch
 from tqdm import tqdm
 import gc # Import the garbage collection module
 
+from src.utils.store_representations import save_repr
 from src.vllm.qwen import QwenVLProbe
 from src.vllm.automodel import AutoModelVLM
 from src.vllm.fastvlm import FastVLM
@@ -21,7 +22,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 model_configs = {
-#    "exp1_1/Qwen_Qwen2-VL-2B-Instruct": ("Qwen/Qwen2-VL-2B-Instruct", QwenVLProbe),
+    "exp1_1/Qwen_Qwen2-VL-2B-Instruct": ("Qwen/Qwen2-VL-2B-Instruct", QwenVLProbe),
     "exp1_2/google_gemma-3-4b-it": ("google/gemma-3-4b-it", AutoModelVLM),
     "exp1_3/apple_fast_vlm": ("apple/FastVLM-0.5B", FastVLM)
     #"test/test": ("apple/FastVLM-0.5B", FastVLM)
@@ -50,13 +51,13 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
     imgs_eval = []
 
 
-    ds_train_sample = ds_train.shuffle().select(range(30000))
-    ds_eval_sample = ds_eval.shuffle().select(range(3000))
+    ds_train_sample = ds_train.shuffle().select(range(20000))
+    ds_eval_sample = ds_eval.shuffle().select(range(2000))
 
     num_dataset_train = len(ds_train_sample)
     num_dataset_eval = len(ds_eval_sample)
 
-    if False: # Testmode
+    if True: # Testmode
         num_dataset_train = 1
         num_dataset_eval = 1
 
@@ -96,6 +97,19 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
 
     for i in range(len(reprs_eval_batched)):
         reprs_eval.append(reprs_eval_batched[i])
+
+    save_repr(
+        representations=repr_train,
+        base_path="artifacts/repr",
+        experiment_name=experiment_name,
+        split_name="train"
+    )
+    save_repr(
+        representations=reprs_eval,
+        base_path="artifacts/repr",
+        experiment_name=experiment_name,
+        split_name="eval"
+    )
 
 
     print("Training probes for each layer")
