@@ -11,7 +11,6 @@ from PIL import Image
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from qwen_vl_utils import process_vision_info
-from src.utils.experiment_utils import pool_tokens
 from src.utils.image_utils import resize_image_aspect_ratio
 from src.vllm.vllm import VLLM
 from tqdm import tqdm
