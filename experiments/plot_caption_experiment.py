@@ -212,7 +212,6 @@ def aggregate_model_accuracies(
     return layer_labels, aligned
 
 
-# ---------------------- NEW: generic aggregation + heatmap plotting ----------------------
 
 def aggregate_model_metric(
     base_dir: Path,
@@ -306,7 +305,7 @@ def plot_combined_metric_heatmap(
             if np.isfinite(prec) and np.isfinite(recall):
                 # MODIFIED: Text is now in a single line, font size slightly adjusted
                 text_label = f"P:{prec:.2f} R:{recall:.2f}"
-                ax.text(j, i, text_label, ha="center", va="center", fontsize=7, color='black')
+                ax.text(j, i, text_label, ha="center", va="center", fontsize=7, color='white',  bbox=dict(facecolor="black", alpha=0.2, boxstyle="square,pad=0.15"))
 
     fig.savefig(save_path / filename)
     plt.close(fig)
