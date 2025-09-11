@@ -381,10 +381,9 @@ def create_plots(dir_path, save_path, split: str = "val_epoch") -> None:
 if __name__ == "__main__":
     models = [
         "exp1_1/",
-        "exp1_2/",
         "exp1_3/",
     ]
-    model_names = ["Gemma-3-4B", "Qwen2-VL-2B", "FastVLM-0.5B"]
+    model_names = ["Qwen2-VL-2B","FastVLM-0.5B"]
 
     for model_dir in models:
         ensure_dir(Path(f"report/figures/global/{model_dir}"))

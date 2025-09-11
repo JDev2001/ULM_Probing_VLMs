@@ -153,7 +153,7 @@ def train_probe(layer_repr_train, labels_train,layer_repr_eval,labels_eval,name)
         device=device,
         lr=1e-3,
         dropout=0.1,
-        epochs=20,
+        epochs=10,
         log_interval=20,
         mixed_precision=False
     )

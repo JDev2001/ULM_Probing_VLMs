@@ -25,6 +25,9 @@ This projects implements a probing pipeline with the mscoco-Dataset for differen
 
 ### Currently Supported Models are
 - "Qwen/Qwen2-VL-2B-Instruct"
-- "google/gemma-3-4b-it",device="cpu"
 - "apple/FastVLM-0.5B"
 - In theory all models with AutoProcessor & AutoModelForCausalLM sould be supported (not guaranteed)
+
+### Use pre-computed representations:
+Download: https://drive.google.com/file/d/1OgYdRy6jmgbUSBhTJijRMEzAfrRDRntC/
+Extract them to artifcats/repr

@@ -221,9 +221,9 @@ class TrainerCaptions:
             total_batches += 1
 
             cnt = batch_confusion_counts(logits, targets)
-            ep_tp += torch.tensor(0, dtype=torch.long, device=self.config.device)
-            ep_fp += torch.tensor(0, dtype=torch.long, device=self.config.device)
-            ep_fn += torch.tensor(0, dtype=torch.long, device=self.config.device)
+            ep_tp += cnt["tp"]
+            ep_fp += cnt["fp"]
+            ep_fn += cnt["fn"]
 
             ep_N += int(cnt["N"])
 

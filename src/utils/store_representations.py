@@ -36,32 +36,50 @@ def save_repr(representations: List[torch.Tensor], base_path: str, experiment_na
 
 
 
+
 def load_representations(base_path: str, experiment_name: str, split_name: str, device: str = "cpu") -> List[torch.Tensor]:
-
+    """
+    Loads layer representations from disk, reconstructs them, and returns them as a list of tensors.
+    """
     load_path = os.path.join(base_path, experiment_name, split_name)
-
 
     if not os.path.isdir(load_path):
         print(f"Info: Path '{load_path}' does not exist. Returning empty list.")
         return []
 
+    # Find all layer files and sort them numerically
     file_paths = glob.glob(os.path.join(load_path, "layer_*.pt"))
     if not file_paths:
-        print(f"Info: No layer files found in '{load_path}'.")
+        print(f"Info: No layer files found in '{load_path}'. Returning empty list.")
         return []
-
 
     file_paths.sort(key=lambda f: int(os.path.basename(f).split('_')[1].split('.')[0]))
 
     print(f"Loading {len(file_paths)} layer representations from '{load_path}'...")
 
+    # Load all tensors from their respective files
     layers_data = [torch.load(p, map_location=device) for p in file_paths]
 
-
+    # Stack the list of tensors along a new dimension (dim=0)
+    # This creates a tensor of shape [num_layers, num_examples, ...]
     stacked_by_layer = torch.stack(layers_data, dim=0)
 
-    permuted = stacked_by_layer.permute(1, 0, 2, 3)
 
+    # Check the number of dimensions and apply the correct permutation
+    if stacked_by_layer.dim() == 4:
+        # For 4D tensors: [layers, examples, seq_len, hidden_dim]
+        # We permute to: [examples, layers, seq_len, hidden_dim]
+        permuted = stacked_by_layer.permute(1, 0, 2, 3)
+    elif stacked_by_layer.dim() == 3:
+        # For 3D tensors (the case causing the error): [layers, examples, hidden_dim]
+        # We permute to: [examples, layers, hidden_dim]
+        permuted = stacked_by_layer.permute(1, 0, 2)
+    else:
+        # Handle unexpected tensor shapes
+        raise ValueError(f"Unexpected tensor dimension after stacking: {stacked_by_layer.dim()}. Expected 3 or 4.")
+
+    # Reconstruct the original list format, where each item is one example's
+    # complete representation across all layers.
     reconstructed_list = [example_tensor for example_tensor in permuted]
 
     return reconstructed_list
