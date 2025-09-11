@@ -29,5 +29,5 @@ This projects implements a probing pipeline with the mscoco-Dataset for differen
 - In theory all models with AutoProcessor & AutoModelForCausalLM sould be supported (not guaranteed)
 
 ### Use pre-computed representations:
-Download: https://drive.google.com/file/d/1OgYdRy6jmgbUSBhTJijRMEzAfrRDRntC/
-Extract them to artifcats/repr
+- Download: https://drive.google.com/file/d/1OgYdRy6jmgbUSBhTJijRMEzAfrRDRntC/
+- Extract them to artifcats/repr
