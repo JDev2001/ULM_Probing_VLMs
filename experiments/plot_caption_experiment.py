@@ -13,7 +13,7 @@ plt.rcParams["savefig.dpi"] = 300
 PLOT_SIZE = (5, 2)            # Default size for line plots
 WIDE_PLOT_SIZE = (7, 4)       # Default size for grouped bar plots
 COMBINED_MIN_WIDTH = 3.5      # Min width for cross-model plot
-COMBINED_WIDTH_PER_LAYER = 0.08
+COMBINED_WIDTH_PER_LAYER = 0.17
 COMBINED_HEIGHT = 2.3
 
 
@@ -253,56 +253,60 @@ def aggregate_model_metric(
     aligned = {name: vals[:min_layers] for name, vals in model_to_vals.items()}
     layer_labels = [str(i) for i in range(min_layers)]
     return layer_labels, aligned
-
-def plot_metric_heatmap(
+def plot_combined_metric_heatmap(
     layer_labels: list[str],
-    model_to_vals: dict[str, list[float]],
+    model_to_f1s: dict[str, list[float]],
+    model_to_precs: dict[str, list[float]],
+    model_to_recalls: dict[str, list[float]],
     save_path: Path,
     filename: str,
     title: str,
-    annotate: bool = True,
 ) -> None:
     """
-    Plot a heatmap (models x layers) for a metric in [0,1].
-    Uses constrained layout to avoid tight_layout/colorbar conflicts.
+    Plot a combined heatmap: F1-score for color, Precision/Recall for annotation.
+    MODIFIED: Axes swapped and cell height reduced for a more compact plot.
     """
-    if not layer_labels or not model_to_vals:
-        print(f"No data for heatmap: {title}")
+    if not layer_labels or not model_to_f1s:
+        print(f"No data for combined heatmap: {title}")
         return
 
     ensure_dir(save_path)
 
-    model_names = list(model_to_vals.keys())
+    model_names = list(model_to_f1s.keys())
     num_models = len(model_names)
     num_layers = len(layer_labels)
 
-    # Build matrix (models x layers)
-    mat = np.array([model_to_vals[m][:num_layers] for m in model_names], dtype=float)
+    # Build matrix for F1-score (for colors) - TRANSPOSED
+    f1_mat = np.array([model_to_f1s[m][:num_layers] for m in model_names], dtype=float).T
 
-    # Figure size
-    fig_width = max(COMBINED_MIN_WIDTH, num_layers * COMBINED_WIDTH_PER_LAYER)
-    fig_height = max(1.8, 1.0 + 0.3 * num_models)
+    # Figure size - Adjusted for new orientation and reduced height
+    fig_width = max(COMBINED_MIN_WIDTH, num_models * 1.5)
+    fig_height = max(2.0, num_layers * 0.15)
 
-    # Use constrained layout and axes objects
     fig, ax = plt.subplots(figsize=(fig_width, fig_height), layout="constrained")
 
-    im = ax.imshow(mat, aspect="auto", vmin=0.0, vmax=1.0)
+    im = ax.imshow(f1_mat, aspect="auto", vmin=0.0, vmax=1.0, cmap="YlOrRd")
 
-    ax.set_xticks(np.arange(num_layers), labels=layer_labels, rotation=45, ha="right")
-    ax.set_yticks(np.arange(num_models), labels=model_names)
-    ax.set_xlabel("Layer")
-    ax.set_ylabel("Model")
+    ax.set_xticks(np.arange(num_models), labels=model_names, rotation=45, ha="right")
+    ax.set_yticks(np.arange(num_layers), labels=layer_labels)
+    ax.set_xlabel("Model")
+    ax.set_ylabel("Layer")
     ax.set_title(title)
 
-    cbar = fig.colorbar(im, ax=ax)
-    cbar.set_label("Score", rotation=90)
+    cbar = fig.colorbar(im, ax=ax, fraction=0.05, pad=0.04)
+    cbar.set_label("F1-Score", rotation=270, labelpad=15)
 
-    if annotate and num_layers <= 30 and num_models <= 12:
-        for i in range(num_models):
-            for j in range(num_layers):
-                val = mat[i, j]
-                if np.isfinite(val):
-                    ax.text(j, i, f"{val:.2f}", ha="center", va="center", fontsize=7)
+    # Custom annotation with Precision and Recall in a single line
+    for i in range(num_layers):
+        for j in range(num_models):
+            model_name = model_names[j]
+            prec = model_to_precs.get(model_name, [])[i]
+            recall = model_to_recalls.get(model_name, [])[i]
+
+            if np.isfinite(prec) and np.isfinite(recall):
+                # MODIFIED: Text is now in a single line, font size slightly adjusted
+                text_label = f"P:{prec:.2f} R:{recall:.2f}"
+                ax.text(j, i, text_label, ha="center", va="center", fontsize=7, color='black')
 
     fig.savefig(save_path / filename)
     plt.close(fig)
@@ -335,19 +339,17 @@ def plot_accuracy_lines_per_layer(
     for model_name, accs in model_to_accs.items():
         plt.plot(x, accs[:num_layers], marker="o", label=model_name)
 
-    # Add baseline line
     plt.axhline(0.5, color="gray", linestyle="--", linewidth=1, label="Baseline (0.5)")
 
     plt.xticks(x, layer_labels, rotation=45, ha="right")
     plt.xlabel("Layer")
     plt.ylabel("Accuracy")
-    plt.ylim(0, 1)   # <-- fix axis from 0 to 1
+    plt.ylim(0, 1)
     plt.title(title)
     plt.legend()
     plt.tight_layout()
     plt.savefig(save_path / filename)
     plt.close()
-
 
 
 def create_plots(dir_path, save_path, split: str = "val_epoch") -> None:
@@ -383,14 +385,14 @@ if __name__ == "__main__":
         "exp1_1/",
         "exp1_3/",
     ]
-    model_names = ["Qwen2-VL-2B","FastVLM-0.5B"]
+    model_names = ["Qwen2-VL-2B", "FastVLM-0.5B"]
 
     for model_dir in models:
         ensure_dir(Path(f"report/figures/global/{model_dir}"))
         create_plots(f"artifacts/{model_dir}", f"report/figures/global/{model_dir}")
 
     base_dir = Path("artifacts")
-    combined_save = ensure_dir(Path("report/figures/global/_combined"))
+    combined_save = ensure_dir(Path("report/figures/global/_combined_exp1"))
 
     # Combined line plot for accuracy
     layer_labels, model_to_accs = aggregate_model_accuracies(
@@ -407,24 +409,33 @@ if __name__ == "__main__":
         title="Accuracy per Layer across Models",
     )
 
-    # Heatmaps for Precision, Recall, F1
-    for metric_key, out_name, plot_title in [
-        ("precision", "precision_heatmap.png", "Precision per Layer across Models"),
-        ("recall",    "recall_heatmap.png",    "Recall per Layer across Models"),
-        ("f1",        "f1_heatmap.png",        "F1 per Layer across Models"),
-    ]:
-        layer_labels_m, model_to_vals = aggregate_model_metric(
-            base_dir=base_dir,
-            model_dirs=models,
-            model_names=model_names,
-            split="val_epoch",
-            metric_key=metric_key,
-        )
-        plot_metric_heatmap(
-            layer_labels=layer_labels_m,
-            model_to_vals=model_to_vals,
+    # Combined Heatmap for F1, Precision, and Recall
+    print("Generating combined metrics heatmap...")
+
+    # 1. Aggregate all required metrics
+    layer_labels_f1, model_to_f1s = aggregate_model_metric(
+        base_dir=base_dir, model_dirs=models, model_names=model_names,
+        split="val_epoch", metric_key="f1"
+    )
+    _, model_to_precs = aggregate_model_metric(
+        base_dir=base_dir, model_dirs=models, model_names=model_names,
+        split="val_epoch", metric_key="precision"
+    )
+    _, model_to_recalls = aggregate_model_metric(
+        base_dir=base_dir, model_dirs=models, model_names=model_names,
+        split="val_epoch", metric_key="recall"
+    )
+
+    # 2. Call the new plotting function
+    if layer_labels_f1: # Check if any data was loaded
+        plot_combined_metric_heatmap(
+            layer_labels=layer_labels_f1,
+            model_to_f1s=model_to_f1s,
+            model_to_precs=model_to_precs,
+            model_to_recalls=model_to_recalls,
             save_path=combined_save,
-            filename=out_name,
-            title=plot_title,
-            annotate=False,
+            filename="combined_metrics_heatmap.png",
+            title=r"Combined Metrics per Layer (F1-Score, Precision \& Recall)",
         )
+    else:
+        print("Skipping combined heatmap due to no data.")

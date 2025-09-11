@@ -78,7 +78,7 @@
 
 \subsection{Models}
 We developed a probing framework for three compact vision--language models:
-\textbf{Qwen2-VL-2B}, \textbf{Gemma-3-4B-IT}, and \textbf{FastVLM-0.5}.
+\textbf{Qwen2-VL-2B} and \textbf{FastVLM-0.5}.
 All models were used in frozen form, i.e., without updating their parameters,
 so that only lightweight probing classifiers were trained on top of their internal
 representations. This allows us to isolate the representational capacity of the models
@@ -96,7 +96,8 @@ can identify the presence of specific objects. For this task, prompts take the f
 \texttt{This image contains the following type of object: \{category\}},
 and the probe must predict the correctness of the statement. Both tasks are based
 on the MS~COCO dataset, with positive and negative examples sampled to ensure balanced
-training and evaluation splits.
+training and evaluation splits. Due to limited computational resources, we restrict our analysis to a random subset of 20.000 images for the training set and 2.000 images for the evaluation set in both experiments.
+
 
 \subsection{Representation Extraction}
 Our framework computes hidden representations for every transformer layer of a model
@@ -108,6 +109,9 @@ and a default strategy that retrieves the last non-padding token. Unless otherwi
 we employ mean pooling, which aggregates information across the entire input sequence
 while respecting attention masks. This yields a single fixed-size vector per input
 and per layer, enabling layerwise comparison of representational quality.
+Moreover, our framework stores all extracted representations in a binary format,
+facilitating efficient reuse and analysis without redundant computation.
+
 
 \subsection{Probing Classifiers}
 On top of the pooled embeddings, we train lightweight classifiers that map the
@@ -137,26 +141,23 @@ models of different architectures and scales.
 To evaluate the performance of the probing classifiers across different layers
 and models, we generated a series of plots that visualize key metrics.
 For the caption experiment, which focuses on global semantic features, the accuracy per layer
-across all three models is shown in Figure~\ref{fig:accuracy_per_layer}. Thus the positive and negative examples are balanced, a random baseline would achieve 50\% accuracy.
+across all three models is shown in Figure~\ref{fig:accuracy_per_layer}.
+Thus the positive and negative examples are balanced, a random baseline would achieve 50\% accuracy.
+We can see that both probes have a similar accurancy for most layers, with Qwen2-VL-2B performing slightly better in the middle layers and FastVLM-0.5B achieving a higher in the final layers.
+Interestingly, both models show a drop in accuracy on layer 11, while at layer 12, the accuracy increases again to almost 100\%. Moreover, at the later layers the accurancy again drops significantly, while it's again increasing at the final layers.
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{figures/global/_combined/accuracy_lines_per_layer.png}
+    \includegraphics[width=1\linewidth]{figures/global/_combined_exp1/accuracy_lines_per_layer.png}
     \caption{Accuracy per layer across all three models.}
     \label{fig:accuracy_per_layer}
 \end{figure}
-
+In \ref{fig:combined_metrics_per_layer}, we present a heatmap that summarizes the precision, recall, and F1 scores for the caption experiment across all layers and models.
+Here we can also observe a similar trend as for the accuracy. The scores are relatively high in the middle layers, drop around layer 1 and then decrease towards the later layers.
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{figures/global/_combined/precision_heatmap.png}
-    \caption{Precision per layer across all three models.}
-    \label{fig:precision_per_layer}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\linewidth]{figures/global/_combined/recall_heatmap.png}
-    \caption{Recall per layer across all three models.}
-    \label{fig:recall_per_layer}
+    \includegraphics[width=1\linewidth]{figures/global/_combined_exp1/combined_metrics_heatmap.png}
+    \caption{Precision, Recall and F1 per layer across all three models.}
+    \label{fig:combined_metrics_per_layer}
 \end{figure}
 
 
