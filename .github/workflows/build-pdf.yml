@@ -18,7 +18,7 @@ jobs:
           uses: xu-cheng/latex-action@v3
           with:
             root_file: report/report.tex
-            args: -cd -pdf -interaction=nonstopmode -halt-on-error
+            args: -cd -pdf -interaction=nonstopmode -halt-on-error -file-line-error -bibtex
         - name: Upload PDF file
           uses: actions/upload-artifact@v4
           with:
