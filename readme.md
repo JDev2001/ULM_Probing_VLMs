@@ -1,6 +1,6 @@
 # ULM Project: Probing VLMs [![Build LaTeX document](https://github.com/JDev2001/ULM_Probing_VLMs/actions/workflows/build-pdf.yml/badge.svg?branch=main)](https://github.com/JDev2001/ULM_Probing_VLMs/actions/workflows/build-pdf.yml)
 
-[Report](https://github.com/JDev2001/ULM_Probing_VLMs/blob/main/report.pdf)
+[Report](https://github.com/JDev2001/ULM_Probing_VLMs/blob/main/report.pdf) (Autoupdated by pushing in report folder -> using Github Actions)
 
 
 ## Install
