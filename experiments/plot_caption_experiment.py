@@ -7,7 +7,7 @@ from tueplots import bundles
 import numpy as np
 
 plt.rcParams.update(bundles.icml2022())
-plt.rcParams["savefig.dpi"] = 300
+plt.rcParams["savefig.dpi"] = 500
 
 
 PLOT_SIZE = (5, 2)            # Default size for line plots

@@ -72,7 +72,13 @@
 
 \end{abstract}
 
+
 \section{Introduction}
+Vision--language models (VLMs) combine text and image understanding and have become central to multimodal AI research. Probing studies help to uncover how such models encode semantic information at different layers, complementing evaluations on end tasks. A recent study \cite{tao2024probingmultimodallargelanguage} examined decoder-only multimodal models such as Kosmos and LaVIT, and found that global semantics are most strongly represented in intermediate layers, while upper layers shift toward local, token-level information, which can reduce the ability to encode global meaning.
+In this work, we extend this line of analysis to recently released compact models such as Qwen2-VL-2B and FastVLM-0.5B. These models represent a new generation of efficient VLMs with parameter counts in the low billions, designed for practical deployment under limited resources. Whether their internal representational patterns follow the same global–local layering observed in earlier models, or show different dynamics, remains an open question.
+To address this, we developed a general probing framework that enables layerwise representation extraction, flexible pooling of token embeddings, and efficient training of lightweight classifiers. Using this framework, we construct two probing tasks on MS~COCO \cite{lin2014microsoft}: a caption–image entailment experiment probing global semantics, and an object-category experiment probing local semantics. Following established methodology \cite{alain2018understanding}, we freeze the VLM parameters, pool hidden states into fixed-size embeddings, and train classifiers on top. We report accuracy, precision, recall, and F1 scores per layer to quantify representational quality.
+Our experiments provide insight into how current compact VLMs encode global and local information across layers, and allow comparison with trends previously reported for older models \cite{tao2024probingmultimodallargelanguage}.
+
 \section{Methods}
 
 \subsection{Models}
@@ -88,13 +94,38 @@ To investigate the distinction between global and local semantic representations
 we designed two probing tasks. The \emph{caption experiment} targets global features
 by testing whether the model can align an image with a candidate caption.
 For this task, inputs are constructed using the prompt
-\texttt{This image contains: \{caption\}. Is this right?},
-and the probe performs binary classification of entailment versus non-entailment.
+\begin{quote}
+\texttt{This image contains: \{caption\}. Is this right?}
+\end{quote}
+and the probe performs binary classification of whether the caption correctly describes the image. Due to limited computational resources, we just use one positve and one negative caption per image in contrast to \cite{tao2024probingmultimodallargelanguage}.
+We consider a set of images $M$ with associated ground-truth captions $C$
+and a set of randomly sampled negative captions $C'$.
+For each image $m \in M$, we select one positive caption $c^+(m) \in C$
+and one negative caption $c^-(m) \in C'$.
+This yields the dataset
+\[
+D = \{(m, c^+(m)), (m, c^-(m)) \;\mid\; m \in M\}.
+\]
+The probing classifier is then trained to solve the binary decision problem
+\[
+f : D \;\rightarrow\; \{0,1\},
+\]
+with $f(m, c^+(m)) = 1$ and $f(m, c^-(m)) = 0$.
 The \emph{category experiment} focuses on local features by probing whether the model
 can identify the presence of specific objects. For this task, prompts take the form
-\texttt{This image contains the following type of object: \{category\}},
-and the probe must predict the correctness of the statement. Both tasks are based
-on the MS~COCO dataset, with positive and negative examples sampled to ensure balanced
+\begin{quote}
+\texttt{This image contains the following type of object: \{category\}}
+\end{quote}
+and the probe must predict the correctness of the statement. $\mathcal{K}$ denotes the set of object categories, and for each image $m \in M$,
+the subset $K(m) \subseteq \mathcal{K}$ specifies the categories present in $m$.
+The probing task amounts to learning a classifier
+\[
+f : M \rightarrow \mathcal{K},
+\]
+such that for an image $m$, the prediction $f(m)$ corresponds to one of the
+true categories in $K(m)$.
+Both tasks are based on the MS~COCO dataset \cite{lin2014microsoft}, which provides annotations
+for images, including captions for each image. We created
 training and evaluation splits. Due to limited computational resources, we restrict our analysis to a random subset of 20.000 images for the training set and 2.000 images for the evaluation set in both experiments.
 
 
@@ -168,35 +199,9 @@ Here we can also observe a similar trend as for the accuracy. The scores are rel
 \section{Conclusion}
 
 \section{References}
-
-\nocite{Ando2005,augenstein-etal-2016-stance,andrew2007scalable,rasooli-tetrault-2015,goodman-etal-2016-noise,harper-2014-learning}
-
-The \LaTeX{} and Bib\TeX{} style files provided roughly follow the American Psychological Association format.
-If your own bib file is named \texttt{custom.bib}, then placing the following before any appendices in your \LaTeX{} file will generate the references section for you:
-\begin{quote}
-\begin{verbatim}
 \bibliographystyle{acl_natbib}
 \bibliography{custom}
-\end{verbatim}
-\end{quote}
-You can obtain the complete ACL Anthology as a Bib\TeX{} file from \url{https://aclweb.org/anthology/anthology.bib.gz}.
-To include both the Anthology and your own .bib file, use the following instead of the above.
-\begin{quote}
-\begin{verbatim}
-\bibliographystyle{acl_natbib}
-\bibliography{custom}
-\end{verbatim}
-\end{quote}
-Please see Section~\ref{sec:bibtex} for information on preparing Bib\TeX{} files.
-
-\subsection{Appendices}
-
-Use \verb|\appendix| before any appendix section to switch the section numbering over to letters. See Appendix~\ref{sec:appendix} for an example.
-
-
-\bibliography{anthology,custom}
-\bibliographystyle{acl_natbib}
-
+\nocite{*}
 \appendix
 
 \section{Example Appendix}
