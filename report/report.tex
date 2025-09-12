@@ -173,8 +173,10 @@ and models, we generated a series of plots that visualize key metrics.
 For the caption experiment, which focuses on global semantic features, the accuracy per layer
 across all three models is shown in Figure~\ref{fig:accuracy_per_layer}.
 Thus the positive and negative examples are balanced, a random baseline would achieve 50\% accuracy.
-We can see that both probes have a similar accurancy for most layers, with Qwen2-VL-2B performing slightly better in the middle layers and FastVLM-0.5B achieving a higher in the final layers.
-Interestingly, both models show a drop in accuracy on layer 11, while at layer 12, the accuracy increases again to almost 100\%. Moreover, at the later layers the accurancy again drops significantly, while it's again increasing at the final layers.
+We can see that both probes show a similar evulution in accurancy over the most layers, with Qwen2-VL-2B performing slightly better than FastVLM-0.5B.
+The accurancy increases from the first towards the later layers.
+Interstingly, the accurancy of FastVLM-0.5B drops significantly in the last layers, while it remains relatively stable for Qwen2-VL-2B.
+
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{figures/global/_combined_exp1/accuracy_lines_per_layer.png}
@@ -182,7 +184,7 @@ Interestingly, both models show a drop in accuracy on layer 11, while at layer 1
     \label{fig:accuracy_per_layer}
 \end{figure}
 In \ref{fig:combined_metrics_per_layer}, we present a heatmap that summarizes the precision, recall, and F1 scores for the caption experiment across all layers and models.
-Here we can also observe a similar trend as for the accuracy. The scores are relatively high in the middle layers, drop around layer 1 and then decrease towards the later layers.
+Here we can also observe a similar trend as for the accuracy. The scores are increases from the first towards the later layers and FastVLM-0.5B shows a significant drop in the last layers.
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{figures/global/_combined_exp1/combined_metrics_heatmap.png}
@@ -204,6 +206,11 @@ Here we can also observe a similar trend as for the accuracy. The scores are rel
 \nocite{*}
 \appendix
 
-\section{Example Appendix}
+\section{Appendix}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/global/_combined_exp1/combined_training_progress_layer_12.png}
+    \caption{A comparison of training and validation loss for the layer 12 probe (as an example), analyzing model performance in the global caption experiment. The Qwen2-VL-2B model (blue) demonstrates a significantly lower and more stable loss than the FastVLM-0.5B model (orange). The small gap between the training (solid) and validation (dashed) curves for the Qwen2 model suggests robust training with no signs of overfitting. Moreover we can see that the strongest learning happens in the first 2 epochs.}
+\end{figure}
 
 \end{document}
