@@ -209,8 +209,13 @@ Here we can also observe a similar trend as for the accuracy. The scores are inc
 \section{Appendix}
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{figures/global/_combined_exp1/combined_training_progress_layer_12.png}
-    \caption{A comparison of training and validation loss for the layer 12 probe (as an example), analyzing model performance in the global caption experiment. The Qwen2-VL-2B model (blue) demonstrates a significantly lower and more stable loss than the FastVLM-0.5B model (orange). The small gap between the training (solid) and validation (dashed) curves for the Qwen2 model suggests robust training with no signs of overfitting. Moreover we can see that the strongest learning happens in the first 2 epochs.}
+    \includegraphics[width=1\linewidth]{figures/global/_combined_exp1/combined_training_progress_layer_15.png}
+    \caption{A comparison of training and validation loss for the layer 15 probe (layer with best accuracy scores), analyzing model performance in the global caption experiment. The Qwen2-VL-2B model (blue) demonstrates a significantly lower and more stable loss than the FastVLM-0.5B model (orange). The small gap between the training (solid) and validation (dashed) curves for the Qwen2 model suggests robust training with no signs of overfitting. Moreover we can see that the strongest learning happens in the first 2 epochs.}
 \end{figure}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/global/_combined_exp1/combined_training_progress_layer_1.png}
+    \caption{A comparison of training and validation loss for the layer 1 probe (layer with lowest accuracy scores), analyzing model performance in the global caption experiment. Both models show no significant learning, with losses remaining high and stable across epochs. This indicates that the representations at this early layer do not contain sufficient information for the caption entailment task, leading to poor probe performance.}
+\end{figure}
 \end{document}

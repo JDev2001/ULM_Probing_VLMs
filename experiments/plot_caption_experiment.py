@@ -462,7 +462,7 @@ if __name__ == "__main__":
     else:
         print("Skipping combined heatmap due to no data.")
 
-    layer = 12
+    layer = 1
     print("\nGenerating combined training progress plot...")
     progress_data = aggregate_model_training_progress(
         base_dir=base_dir, model_dirs=models, model_names=model_names, layer=layer,
