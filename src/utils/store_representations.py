@@ -8,6 +8,66 @@ import glob
 
 from src.utils.experiment_utils import get_repr_for_layer
 
+import os
+from typing import List, Any
+import torch
+
+
+def save_labels(labels: List[Any], base_path: str, experiment_name: str, split_name: str):
+    """
+    Saves a list of labels to a file using torch.save.
+
+    Args:
+        labels (List[Any]): A list containing the labels for a dataset split.
+        base_path (str): The base directory for storing experiments.
+        experiment_name (str): The name of the specific experiment.
+        split_name (str): The name of the data split (e.g., 'train', 'test').
+    """
+    if not labels:
+        print(f"Warning: No labels to save for '{split_name}'. Skipping save.")
+        return
+
+    # Construct the full path and create directories if they don't exist
+    save_path = os.path.join(base_path, experiment_name, split_name)
+    os.makedirs(save_path, exist_ok=True)
+    print(f"Storing labels in '{save_path}'...")
+
+    # Define the file path for the labels
+    file_path = os.path.join(save_path, "labels.pt")
+
+    # Save the list of labels
+    torch.save(labels, file_path)
+    print(f"Successfully saved {len(labels)} labels to '{file_path}'.")
+
+
+def load_labels(base_path: str, experiment_name: str, split_name: str, device: str = "cpu") -> List[Any]:
+    """
+    Loads a list of labels from a file.
+
+    Args:
+        base_path (str): The base directory where experiments are stored.
+        experiment_name (str): The name of the specific experiment.
+        split_name (str): The name of the data split (e.g., 'train', 'test').
+        device (str): The device to map the loaded data to (e.g., 'cpu', 'cuda').
+                      This is included for consistency but labels are typically device-agnostic.
+
+    Returns:
+        List[Any]: The loaded list of labels. Returns an empty list if the file is not found.
+    """
+    file_path = os.path.join(base_path, experiment_name, split_name, "labels.pt")
+
+    # Check if the labels file exists
+    if not os.path.isfile(file_path):
+        print(f"Info: Labels file '{file_path}' does not exist. Returning empty list.")
+        return []
+
+    print(f"Loading labels from '{file_path}'...")
+
+    # Load the labels file
+    loaded_labels = torch.load(file_path, map_location=device)
+
+    return loaded_labels
+
 
 def save_repr(representations: List[torch.Tensor], base_path: str, experiment_name: str, split_name: str):
 

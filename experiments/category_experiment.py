@@ -3,7 +3,7 @@ import torch
 from tqdm import tqdm
 import gc # Import the garbage collection module
 
-from src.utils.store_representations import save_repr
+from src.utils.store_representations import save_repr, save_labels
 from src.vllm.fastvlm import FastVLM
 from src.vllm.qwen import QwenVLProbe
 from src.vllm.automodel import AutoModelVLM
@@ -119,7 +119,18 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
         split_name="eval"
     )
 
-
+    save_labels(
+        labels=labels_train,
+        base_path="artifacts/labels",
+        experiment_name=experiment_name,
+        split_name="train"
+    )
+    save_labels(
+        labels=labels_eval,
+        base_path="artifacts/labels",
+        experiment_name=experiment_name,
+        split_name="eval"
+    )
 
     print("Training probes for each layer")
     for layer in tqdm(range(repr_train[0].shape[0]), desc=f"Training Probes for {experiment_name}"):
