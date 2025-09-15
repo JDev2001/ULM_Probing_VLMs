@@ -53,14 +53,8 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
         repr_train = load_representations("artifacts/repr", experiment_name, "train")
         reprs_eval = load_representations("artifacts/repr", experiment_name, "eval")
 
-        labels_train = []
-        labels_eval = []
-
-        for i in tqdm(range(num_dataset_train)):
-            labels_train.append(1)
-
-        for i in tqdm(range(num_dataset_eval)):
-            labels_eval.append(1)
+        labels_train = load_labels("artifacts/labels", experiment_name, "train")
+        labels_eval = load_labels("artifacts/labels", experiment_name, "eval")
 
     else:
         ds = dataset
@@ -160,7 +154,8 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
         train_probe_local(layer_repr, labels_train, layer_repr_eval, labels_eval, run_name)
 
     print(f"Finished processing {experiment_name}. Releasing resources.")
-    del model
+    if not USE_OFFLINE_REPR:
+        del model
     del repr_train
     del reprs_eval
 

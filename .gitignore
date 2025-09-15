@@ -252,3 +252,4 @@ report/*.pdf
 build/
 
 artifacts/repr
+artifacts/labels
