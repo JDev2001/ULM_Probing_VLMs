@@ -339,8 +339,10 @@ class Trainer_category:
                 # Sum counts for micro averaging across the epoch
                 if "agg_counts" not in locals():
                     agg_tp = tp; agg_fp = fp; agg_fn = fn; agg_tn = tn
+                    agg_prec, agg_rec, agg_f1 = prec, rec, f1
                 else:
                     agg_tp += tp; agg_fp += fp; agg_fn += fn; agg_tn += tn
+                    agg_prec += prec; agg_rec += rec; agg_f1 += f1
             else:
                 total_acc += accuracy_from_logits(logits, targets)
 
@@ -363,31 +365,32 @@ class Trainer_category:
 
         self.model.train() # Set model back to training mode
 
-        if total_batches == 0 or ep_tp is None:
+        if total_batches == 0:
             return {
                 "loss": 0.0, "accuracy": 0.0, "precision": 0.0, "recall": 0.0, "f1": 0.0,
                 "tp": 0, "fp": 0, "fn": 0, "tn": 0,
             }
 
-        # Finalize metrics using the corrected function
-        if "agg_counts" in locals():
-            TP = torch.tensor(agg_tp, dtype=torch.float64)
-            FP = torch.tensor(agg_fp, dtype=torch.float64)
-            FN = torch.tensor(agg_fn, dtype=torch.float64)
-            TN = torch.tensor(agg_tn, dtype=torch.float64)
-            precision = float(_safe_div(TP, TP + FP))
-            recall    = float(_safe_div(TP, TP + FN))
-            denom = precision + recall
-            f1 = float(0.0 if denom == 0 else (2 * precision * recall) / denom)
+        if targets.dtype in (torch.float16, torch.float32, torch.float64):
+            return {
+                "loss": total_loss / total_batches,
+                "accuracy": total_acc / total_batches,
+                "precision": agg_prec / total_batches,
+                "recall": agg_rec / total_batches,
+                "f1": agg_f1 / total_batches,
+                "tp": int(agg_tp), "fp": int(agg_fp), "fn": int(agg_fn), "tn": int(agg_tn),
+            }
+        else:
+            precision, recall, f1, tp, fp, fn, tn = finalize_metrics(ep_tp, ep_fp, ep_fn, ep_N, ep_num_classes)
             return {
                 "loss": total_loss / total_batches,
                 "accuracy": total_acc / total_batches,
                 "precision": precision,
                 "recall": recall,
                 "f1": f1,
-                "tp": int(TP.item()), "fp": int(FP.item()), "fn": int(FN.item()), "tn": int(TN.item()),
+                "tp": tp, "fp": fp, "fn": fn, "tn": tn,
             }
-
+    
     def save_artifacts(self, filename_model: str = "model.pt", filename_optim: str = "optimizer.pt"):
         """Save model and optimizer state_dicts."""
         model_path = os.path.join(self.run_dir, filename_model)
