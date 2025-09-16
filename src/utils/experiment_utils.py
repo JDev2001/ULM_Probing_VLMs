@@ -189,7 +189,7 @@ def train_probe_local(layer_repr_train, labels_train, layer_repr_eval, labels_ev
         device=device,
         lr=1e-3,
         dropout=0.1,
-        epochs=20,
+        epochs=10,
         log_interval=20,
         mixed_precision=False
     )
