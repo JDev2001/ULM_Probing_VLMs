@@ -80,6 +80,9 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
         ds_train_sample = ds_train.shuffle().select(range(20000))
         ds_eval_sample = ds_eval.shuffle().select(range(2000))
 
+        ds_train_sample = ds_train_sample.filter(lambda x: len(x['pos_categories']) > 0)
+        ds_eval_sample = ds_eval_sample.filter(lambda x: len(x['pos_categories']) > 0)
+
         # Added to calculate the length of sampled dataset of local semantics
         num_dataset_train = len(ds_train_sample)
         num_dataset_eval = len(ds_eval_sample)
