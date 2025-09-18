@@ -32,12 +32,11 @@ model_configs = {
 def sample_categories(pos_categories, neg_categories, sample_size=3):
     num_pos_categories = len(pos_categories)
     num_neg_to_sample = max(sample_size - num_pos_categories, 0)
-    print(pos_categories)
 
     selected_neg_categories = random.sample(neg_categories, num_neg_to_sample)
     selected_categories = pos_categories + selected_neg_categories
     random.shuffle(selected_categories)
-    print(selected_categories)
+    
     true_labels = [1 if category in set(pos_categories).intersection(selected_categories) else 0 for category in categories]
     mask_sampled_candidates = [1 if category in set(selected_categories) else 0 for category in categories]
 
