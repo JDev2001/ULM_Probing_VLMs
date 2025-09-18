@@ -1,7 +1,7 @@
 {
   "model_name": "exp2_1/Qwen_Qwen2-VL-2B-Instruct_Test_layer4",
   "device": "cuda",
-  "epochs": 20,
+  "epochs": 10,
   "mixed_precision": false,
   "grad_accum_steps": 1,
   "log_interval": 20,

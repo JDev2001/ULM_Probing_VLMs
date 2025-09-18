@@ -23,7 +23,7 @@ dataset, categories = load_category_ds()
 
 model_configs = {
     "exp2_1/Qwen_Qwen2-VL-2B-Instruct": ("Qwen/Qwen2-VL-2B-Instruct", QwenVLProbe),
-    "exp2_2/google_gemma-3-4b-it": ("google/gemma-3-4b-it", AutoModelVLM),
+#    "exp2_2/google_gemma-3-4b-it": ("google/gemma-3-4b-it", AutoModelVLM),
     "exp2_3/apple_fast_vlm": ("apple/FastVLM-0.5B", FastVLM)
 }
 
