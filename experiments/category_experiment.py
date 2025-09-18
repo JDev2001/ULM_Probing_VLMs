@@ -12,7 +12,7 @@ from src.utils.experiment_utils import  get_repr_batch, get_repr_for_layer, trai
 # Added for sample negative objects
 import random
 
-USE_OFFLINE_REPR = True
+USE_OFFLINE_REPR = False
 
 num_dataset_train = 20000
 num_dataset_eval = 2000
@@ -96,7 +96,8 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
 
             imgs_train.append(ds_train_sample[i]['url'])
 
-            labels_train.append((label_vector, mask_vector))
+            labels_train.append((label_vector, mask_vector, ds_train_sample[i]['pos_categories'], sampled_categories))
+            # print((label_vector, mask_vector, ds_train_sample[i]['pos_categories'], sampled_categories))
 
         print("Preparing eval data...")
         for i in tqdm(range(num_dataset_eval)):
@@ -106,7 +107,8 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
 
             imgs_eval.append(ds_eval_sample[i]['url'])
 
-            labels_eval.append((label_vector, mask_vector))
+            labels_eval.append((label_vector, mask_vector, ds_eval_sample[i]['pos_categories'], sampled_categories))
+            # print((label_vector, mask_vector, ds_eval_sample[i]['pos_categories'], sampled_categories))
 
 
         print("Computing representations for train examples")

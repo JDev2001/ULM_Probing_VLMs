@@ -168,12 +168,12 @@ def train_probe(layer_repr_train, labels_train,layer_repr_eval,labels_eval,name)
 def train_probe_local(layer_repr_train, labels_train, layer_repr_eval, labels_eval, name):
 
     X_train = torch.stack([r.squeeze(0) for r in layer_repr_train]).to(torch.float32)
-    y_train = torch.tensor([l for (l, m) in labels_train], dtype=torch.float32)
-    m_train = torch.tensor([m for (l, m) in labels_train], dtype=torch.float32)
+    y_train = torch.tensor([l for (l, m, _, _) in labels_train], dtype=torch.float32)
+    m_train = torch.tensor([m for (l, m, _ ,_) in labels_train], dtype=torch.float32)
 
     X_eval = torch.stack([r.squeeze(0) for r in layer_repr_eval]).to(torch.float32)
-    y_eval = torch.tensor([l for (l, m) in labels_eval], dtype=torch.float32)
-    m_eval = torch.tensor([m for (l, m) in labels_eval], dtype=torch.float32)
+    y_eval = torch.tensor([l for (l, m, _, _) in labels_eval], dtype=torch.float32)
+    m_eval = torch.tensor([m for (l, m, _, _) in labels_eval], dtype=torch.float32)
 
     dataset_train = TensorDataset(X_train, y_train, m_train)
     dataset_eval = TensorDataset(X_eval, y_eval, m_eval)

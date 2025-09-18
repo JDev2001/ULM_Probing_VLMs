@@ -38,17 +38,12 @@ def multilabel_metrics_from_logits(
     """
     probs = torch.sigmoid(logits)
     preds = (probs >= threshold).float()
+    masks = torch.ones_like(targets) if masks is None else masks
 
-    if masks is None:
-        masks = torch.ones_like(targets)
-
-    preds_m = preds * masks
-    targs_m = targets * masks
-
-    TP = (preds_m * targs_m).sum()
-    FP = (preds_m * (1 - targs_m)).sum()
-    FN = ((1 - preds_m) * targs_m).sum()
-    TN = ((1 - preds_m) * (1 - targs_m)).sum()
+    TP = ((preds == 1) & (targets == 1) & (masks == 1)).sum()
+    FP = ((preds == 1) & (targets == 0) & (masks == 1)).sum()
+    FN = ((preds == 0) & (targets == 1) & (masks == 1)).sum()
+    TN = ((preds == 0) & (targets == 0) & (masks == 1)).sum()
 
     precision = float(_safe_div(TP, TP + FP))
     recall    = float(_safe_div(TP, TP + FN))
@@ -312,45 +307,47 @@ class Trainer_category:
         self.model.eval()
 
         total_loss = 0.0
-        total_acc = 0.0
         total_batches = 0
 
-        # Epoch-level accumulators for evaluation
+        # For multi-label: accumulate raw counts across all batches
+        total_tp = 0
+        total_fp = 0
+        total_fn = 0
+        total_tn = 0
+        
+        # For single-label: accumulate per-class counts
         ep_tp = ep_fp = ep_fn = None
         ep_N = 0
         ep_num_classes = None
+
+        is_multilabel = False
 
         for batch in loader:
             inputs, targets, masks = self._unpack_batch(batch, device)
             logits = self.model(inputs)
 
             if targets.dtype in (torch.float16, torch.float32, torch.float64):
+                # Multi-label case
+                is_multilabel = True
                 if masks is None:
-                   masks = torch.ones_like(targets)
+                    masks = torch.ones_like(targets)
                 per_logit_loss = self.criterion(logits, targets)
                 loss = (per_logit_loss * masks).sum() / masks.sum()
+                
+                # Get metrics for this batch
+                acc, prec, rec, f1, tp, fp, fn, tn = multilabel_metrics_from_logits(logits, targets, masks)
+                
+                # Accumulate raw counts across all batches
+                total_tp += tp
+                total_fp += fp
+                total_fn += fn
+                total_tn += tn
             else:
+                # Single-label case
                 targets = targets.long()
                 loss = self.criterion(logits, targets)
-
-            if targets.dtype in (torch.float16, torch.float32, torch.float64):
-                acc, prec, rec, f1, tp, fp, fn, tn = multilabel_metrics_from_logits(logits, targets, masks)
-                total_acc += acc
-                # Sum counts for micro averaging across the epoch
-                if "agg_counts" not in locals():
-                    agg_tp = tp; agg_fp = fp; agg_fn = fn; agg_tn = tn
-                    agg_prec, agg_rec, agg_f1 = prec, rec, f1
-                else:
-                    agg_tp += tp; agg_fp += fp; agg_fn += fn; agg_tn += tn
-                    agg_prec += prec; agg_rec += rec; agg_f1 += f1
-            else:
-                total_acc += accuracy_from_logits(logits, targets)
-
-            total_loss += loss.item()
-            total_batches += 1
-
-            # Accumulate confusion matrix counts
-            if targets.dtype not in (torch.float16, torch.float32, torch.float64):
+                
+                # Accumulate confusion matrix counts
                 cnt = batch_confusion_counts(logits, targets)
                 if ep_tp is None:
                     ep_tp = cnt["tp"].clone()
@@ -363,6 +360,9 @@ class Trainer_category:
                 ep_N += int(cnt["N"])
                 ep_num_classes = ep_num_classes or int(cnt["C"])
 
+            total_loss += loss.item()
+            total_batches += 1
+
         self.model.train() # Set model back to training mode
 
         if total_batches == 0:
@@ -371,26 +371,57 @@ class Trainer_category:
                 "tp": 0, "fp": 0, "fn": 0, "tn": 0,
             }
 
-        if targets.dtype in (torch.float16, torch.float32, torch.float64):
+        if is_multilabel:
+            # Calculate final metrics from accumulated counts
+            print(f"Evaluation complete - Total TP+FP+TN+FN: {total_tp + total_fp + total_tn + total_fn}")
+            
+            # Calculate metrics from total counts
+            if (total_tp + total_fp) > 0:
+                precision = total_tp / (total_tp + total_fp)
+            else:
+                precision = 0.0
+                
+            if (total_tp + total_fn) > 0:
+                recall = total_tp / (total_tp + total_fn)
+            else:
+                recall = 0.0
+                
+            if (precision + recall) > 0:
+                f1 = 2 * precision * recall / (precision + recall)
+            else:
+                f1 = 0.0
+                
+            total_decisions = total_tp + total_fp + total_tn + total_fn
+            accuracy = (total_tp + total_tn) / total_decisions if total_decisions > 0 else 0.0
+            
             return {
                 "loss": total_loss / total_batches,
-                "accuracy": total_acc / total_batches,
-                "precision": agg_prec / total_batches,
-                "recall": agg_rec / total_batches,
-                "f1": agg_f1 / total_batches,
-                "tp": int(agg_tp), "fp": int(agg_fp), "fn": int(agg_fn), "tn": int(agg_tn),
-            }
-        else:
-            precision, recall, f1, tp, fp, fn, tn = finalize_metrics(ep_tp, ep_fp, ep_fn, ep_N, ep_num_classes)
-            return {
-                "loss": total_loss / total_batches,
-                "accuracy": total_acc / total_batches,
+                "accuracy": accuracy,
                 "precision": precision,
                 "recall": recall,
                 "f1": f1,
-                "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+                "tp": total_tp,
+                "fp": total_fp,
+                "fn": total_fn,
+                "tn": total_tn,
             }
-    
+        else:
+            # Single-label case
+            precision, recall, f1, tp, fp, fn, tn = finalize_metrics(ep_tp, ep_fp, ep_fn, ep_N, ep_num_classes)
+            accuracy = (ep_tp.sum().item() + (ep_N * ep_num_classes - ep_tp.sum() - ep_fp.sum() - ep_fn.sum()).item()) / (ep_N * ep_num_classes) if ep_N > 0 else 0.0
+            
+            return {
+                "loss": total_loss / total_batches,
+                "accuracy": accuracy,
+                "precision": precision,
+                "recall": recall,
+                "f1": f1,
+                "tp": tp,
+                "fp": fp,
+                "fn": fn,
+                "tn": tn,
+            }
+   
     def save_artifacts(self, filename_model: str = "model.pt", filename_optim: str = "optimizer.pt"):
         """Save model and optimizer state_dicts."""
         model_path = os.path.join(self.run_dir, filename_model)
@@ -411,6 +442,9 @@ class Trainer_category:
             return inputs.to(device), labels.to(device), None
         elif isinstance(batch, dict) and "inputs" in batch and "labels" in batch:
             inputs, labels = batch["inputs"], batch["labels"]
+            masks = batch.get("masks", None)
+            if masks is not None:
+                return inputs.to(device), labels.to(device), masks.to(device)
             return inputs.to(device), labels.to(device), None
         else:
             raise ValueError("Unsupported batch format.")
