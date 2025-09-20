@@ -1,0 +1,10 @@
+{
+  "model_name": "exp2_3/apple_fast_vlm_Test_layer17",
+  "device": "cuda",
+  "epochs": 10,
+  "mixed_precision": false,
+  "grad_accum_steps": 1,
+  "log_interval": 20,
+  "lr": 0.001,
+  "dropout": 0.1
+}
