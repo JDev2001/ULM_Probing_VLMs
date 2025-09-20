@@ -104,7 +104,9 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
         print("Preparing eval data...")
         for i in tqdm(range(num_dataset_eval)):
             sampled_categories, label_vector, mask_vector = sample_categories(ds_eval_sample[i]['pos_categories'], ds_eval_sample[i]['neg_categories'])
-            prompt = load_categories_prompt().format(category=', '.join(sampled_categories))
+            # Changed the prompt with an empty list of objects to prevent any label leakage
+            prompt = load_categories_prompt().format(category='')
+            # prompt = load_categories_prompt().format(category=', '.join(sampled_categories))
             prompts_eval.append(prompt)
 
             imgs_eval.append(ds_eval_sample[i]['url'])
@@ -171,3 +173,4 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
     if device == "cuda":
         torch.cuda.empty_cache() # Release cached memory on the GPU
     print("Resources released. Moving to next model.\n")
+
