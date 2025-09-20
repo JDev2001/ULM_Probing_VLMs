@@ -76,22 +76,24 @@ for experiment_name, (model_hf_name, model_class) in model_configs.items():
         prompts_eval = []
         imgs_eval = []
 
-        # Added to shuffle the dataset of local semantics
-        ds_train_sample = ds_train.shuffle().select(range(20000))
-        ds_eval_sample = ds_eval.shuffle().select(range(2000))
+        # Keep only the sample which has at least one positive category
+        ds_train_filtered = ds_train.filter(lambda x: len(x['pos_categories']) > 0)
+        ds_eval_filtered = ds_eval.filter(lambda x: len(x['pos_categories']) > 0)
 
-        ds_train_sample = ds_train_sample.filter(lambda x: len(x['pos_categories']) > 0)
-        ds_eval_sample = ds_eval_sample.filter(lambda x: len(x['pos_categories']) > 0)
+        # Added to shuffle the dataset of local semantics
+        ds_train_sample = ds_train_filtered.shuffle().select(range(20000))
+        ds_eval_sample = ds_eval_filtered.shuffle().select(range(2000))
 
         # Added to calculate the length of sampled dataset of local semantics
         num_dataset_train = len(ds_train_sample)
         num_dataset_eval = len(ds_eval_sample)
-
         print("Preparing train data...")
 
         for i in tqdm(range(num_dataset_train)):
             sampled_categories, label_vector, mask_vector = sample_categories(ds_train_sample[i]['pos_categories'], ds_train_sample[i]['neg_categories'])
-            prompt = load_categories_prompt().format(category=', '.join(sampled_categories))
+            # Changed the prompt with an empty list of objects to prevent any label leakage
+            prompt = load_categories_prompt().format(category='')
+            # previous version: prompt = load_categories_prompt().format(category=', '.join(sampled_categories))
             prompts_train.append(prompt)
 
             imgs_train.append(ds_train_sample[i]['url'])
