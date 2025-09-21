@@ -189,7 +189,27 @@ Here we can also observe a similar trend as for the accuracy. The scores are inc
     \label{fig:combined_metrics_per_layer}
 \end{figure}
 
+For the category experiment on local semantics, the accuracy per layer across the two models is shown in Figure~\ref{fig:accuracy_lines_per_layer_local}.
+We can see that both Qwen2-VL-2B and FastVLM-0.5B maintain a consistently high accuracy of around 95--97\% across all layers.
+In contrast to the global semantic results, here the accuracy does not show a clear upward trend with increasing layer depth, but instead remains stable throughout.
+Moreover, no significant drop is observed in the final layers for FastVLM-0.5B, with both models performing nearly identically at each layer.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/local/_combined_exp2/accuracy_lines_per_layer.png}
+    \caption{Accuracy per layer across all two models in category experiment.}
+    \label{fig:accuracy_per_layer_local}
+\end{figure}
+
+In Figure~\ref{fig:combined_metrics_heatmap}, we present a heatmap that summarizes the precision, recall, and F1 scores for the category experiment across all layers and models.
+These metrics confirm the same pattern as the accuracy plot: both models achieve consistently high precision and recall (around 0.94 to 0.97) across all layers, leading to stable F1 scores close to 0.95.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/local/_combined_exp2/combined_metrics_heatmap.png}
+    \caption{Precision, Recall and F1 per layer across all two models in category experiment.}
+    \label{fig:combined_metrics_per_layer}
+\end{figure}
 
 
 
@@ -216,4 +236,3 @@ Here we can also observe a similar trend as for the accuracy. The scores are inc
     \caption{A comparison of training and validation loss for the layer 1 probe (layer with lowest accuracy scores), analyzing model performance in the global caption experiment. Both models show no significant learning, with losses remaining high and stable across epochs. This indicates that the representations at this early layer do not contain sufficient information for the caption entailment task, leading to poor probe performance.}
 \end{figure}
 \end{document}
-
