@@ -212,10 +212,24 @@ These metrics confirm the same pattern as the accuracy plot: both models achieve
 \end{figure}
 
 
-
-
-
 \section{Discussion}
+\subsection{Reflection on the results}
+In relation to our central research question regarding whether small VLMs follow the same global–-local representational trends observed in larger models.
+Our findings reveal both convergences and divergences.
+
+In terms of global semantics, we find evidence of a consistent pattern.
+In smaller models, as in larger ones, intermediate layers encode stronger global semantics than very early layers.
+This is reflected in the improved performance of middle–later layers on the caption entailment probe. However, the dynamics toward the later layers diverge. Larger VLMs typically exhibit a clear intermediate-layer peak followed by a gradual decline in global information, whereas the small models behave less uniformly.
+FastVLM-0.5B demonstrates a sharp drop in performance at the final layers.
+By contrast, Qwen2-VL-2B maintains relatively constant performance into the later layers, without the same steep decline.
+
+In terms of local semantics, our findings suggest that local semantic information is represented in a consistent manner across different layers.
+Specifically, both the small-scale FastVLM-0.5B and the larger Qwen2-VL-2B encode object-level semantics in a highly linearly separable fashion throughout nearly all layers, with accuracies well above the baseline and only minor variation across depth.
+Unlike larger VLMs show a clear improvement in local semantic encoding from early to mid layers. Our results show that small VLMs already capture local semantics at high fidelity from early layers.
+This may suggests that smaller VLMs may be saturating their ability to encode local semantics earlier in the architecture
+
+
+
 \section{Conclusion}
 
 \section{References}
