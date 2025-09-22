@@ -109,15 +109,20 @@ f : D \;\rightarrow\; \{0,1\},
 \]
 with $f(m, c^+(m)) = 1$ and $f(m, c^-(m)) = 0$.
 The \emph{category experiment} focuses on local features by probing whether the model
-can identify the presence of specific objects. For this task, prompts take the form
+can identify the presence of specific objects. For this task, 2 different versions of prompt have been tried out in the experiment.
+Initially, the prompt take the form
 \begin{quote}
-\texttt{This image contains the following type of object: \{category\}}
+\texttt{This image contains the following types of object: \{categories\}}
 \end{quote}
-and the probe must predict the correctness of the statement. $\mathcal{K}$ denotes the set of object categories, and for each image $m \in M$,
+After reviewing the preliminary results, a prompt without the list of the object categories is implemented to prevent data leakage.
+\begin{quote}
+\texttt{This image contains the following types of object: }
+\end{quote}
+and the probe must predict the existence of each category in the image. $\mathcal{K}$ denotes the set of object categories, and for each image $m \in M$,
 the subset $K(m) \subseteq \mathcal{K}$ specifies the categories present in $m$.
 The probing task amounts to learning a classifier
 \[
-f : M \rightarrow \mathcal{K},
+f : M \;\rightarrow\; \{0,1\} ^{|\mathcal{K}|},
 \]
 such that for an image $m$, the prediction $f(m)$ corresponds to one of the
 true categories in $K(m)$.
@@ -146,7 +151,9 @@ representations to task labels. For both experiments, we use a simple linear
 projection with dropout regularization, optimized with Adam and cross-entropy loss.
 The caption experiment is framed as binary classification, while the category experiment
 is treated as multi-label prediction with label and mask vectors indicating valid
-categories for each image. All probes are trained independently per layer, which allows
+categories for each image. A set of 3 valid categories are used for the category experiment.
+It typically consists of 1-2 positive categories and randomly sampled negative categories,
+ensuring a balanced ratio of both. All probes are trained independently per layer, which allows
 us to quantify how well each layer captures global or local semantic information.
 Our trainer additionally computes detailed evaluation metrics, including accuracy for
 caption entailment and macro-averaged F1, precision, recall, and confusion matrix
