@@ -230,13 +230,13 @@ This may suggests that smaller VLMs may be saturating their ability to encode lo
 
 \subsection{Limitation of the Study}
 One of the limitations of our study concerns the way negative examples were constructed. We rely on random sampling to generate negative samples of captions and categories, without accounting for their semantic closeness to the correct choice.
-This contrasts with the approach emphasized in Liu et al. (2024), where the design of probing tasks highlights the importance of controlling for semantic difficulty.
+This contrasts with the approach emphasized in a study \cite{roesch2024EnhancingConceptualUnderstandinginMultimodal}, where the design of probing tasks highlights the importance of controlling for semantic difficulty.
 If negatives are too easy to the probes, layer-specific variation may be underestimated.
 This may partly explain why our local semantic probes exhibited similar performance across layers as the distinctions of the classifiers may be flattened. \\
 
 Another limitation of our study lies in the choice of pooling strategy for sequence representations.
 We applied mean pooling across valid tokens to obtain a single vector representation of the input. This approach implicitly treats all tokens as equally informative.
-Prior work (e.g., Li et al., 2024) has shown that different pooling methods like taking the hidden state of the final token can yield different insights. Exploring alternative pooling strategies and comparing them systematically may provide a more nuanced view of how VLMs distribute information across layers. \\
+Prior work \cite{tang2024PoolingAndAttention} has shown that different pooling methods like taking the hidden state of the final token can yield different insights. Exploring alternative pooling strategies and comparing them systematically may provide a more nuanced view of how VLMs distribute information across layers. \\
 
 Due to computational limits, our probing experiments were restricted to 20k training and 2k evaluation samples from MS COCO.
 In addition, coverage of semantics variation would be a potential issue.
@@ -247,13 +247,14 @@ This reduced variation means probes might overestimate how well a model captures
 A possible extension of this work would be to broaden the probing framework beyond the current focus on local versus global semantics.
 While this distinction of semantics captures one important perspective on how models encode information, it is only a partial lens through which to view their representational capacities.
 Future studies could explore a wider taxonomy of knowledge types.
-More fine-grained semantic representations, such as relational, compositional, and contextual understanding, as examined in recent probing approaches (Schiappa et al., 2024) can be explored.
+More fine-grained semantic representations, such as relational, compositional, and contextual understanding, as examined in recent probing approaches \cite{schiappa2023ProbingConceptualUnderstanding} can be explored.
 Beyond relatively more literal and structural dimensions of meaning covered in this study, another potential direction is to investigate how VLMs handle deeper or more abstract forms of knowledge.
-For example, in the perspective of combinational creativity (Yongqian Peng, 2025), it would be insightful to investigate the models' ability to interpret novel combinations of familiar concepts. Such extensions would provide a richer picture of the models’ capabilities in generalization. \\
+For example, in the perspective of combinational creativity \cite{peng2025ProbingandInducingCombinationalCreativity}, it would be insightful to investigate the models' ability to interpret novel combinations of familiar concepts. Such extensions would provide a richer picture of the models’ capabilities in generalization. \\
 
 While our investigation has yielded useful insights using Qwen2-VL-2B-Instruct and FastVLM-0.5B, the architectural diversity in our models is still quite limited.
 To more fully understand where and how information is stored or lost across vision-language models, future work should extend this probing to a broader set of VLM architectures.
-For example, models under the architecture Encoder–decoder cross-modal fusion (e.g. BLIP / BLIP-2), which integrate vision and language through deeper cross-attention layers, may preserve global and local semantic information differently. Furthermore Mixture-of-Experts (MoE) architectures, which route information dynamically, may distribute semantic content in another way.
+For example, models under the architecture Encoder–decoder cross-modal fusion like BLIP-2 \cite{li2023BLIP2}, which integrate vision and language through deeper cross-attention layers, may preserve global and local semantic information differently.
+Furthermore Mixture-of-Experts (MoE) architectures \cite{lin2024MoELLaVA}, which route information dynamically, may distribute semantic content in another way.
 
 
 \section{Conclusion}
