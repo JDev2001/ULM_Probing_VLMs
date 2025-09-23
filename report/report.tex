@@ -124,11 +124,11 @@ The probing task amounts to learning a classifier
 \[
 f : M \;\rightarrow\; \{0,1\} ^{|\mathcal{K}|},
 \]
-such that for an image $m$, the prediction $f(m)$ corresponds to one of the
-true categories in $K(m)$.
+such that for an image $m$, the prediction $f(m)$ is a binary vector whose positive entries correspond to the categories in $K(m)$.
 Both tasks are based on the MS~COCO dataset \cite{lin2014microsoft}, which provides annotations
 for images, including captions for each image. We created
 training and evaluation splits. Due to limited computational resources, we restrict our analysis to a random subset of 20.000 images for the training set and 2.000 images for the evaluation set in both experiments.
+
 
 
 \subsection{Representation Extraction}
@@ -196,16 +196,16 @@ Here we can also observe a similar trend as for the accuracy. The scores are inc
     \label{fig:combined_metrics_per_layer}
 \end{figure}
 
-For the category experiment on local semantics, the accuracy per layer across the two models is shown in Figure~\ref{fig:accuracy_per_layer_local}.
-We can see that both Qwen2-VL-2B and FastVLM-0.5B maintain a consistently high accuracy of around 95--97\% across all layers.
-In contrast to the global semantic results, here the accuracy does not show a clear upward trend with increasing layer depth, but instead remains stable throughout.
+For the category experiment on local semantics, the accuracy per layer across the two models is shown in Figure~\ref{fig:f1_per_layer_local}.
+We can see that both Qwen2-VL-2B and FastVLM-0.5B maintain a consistently high F1 scores of around 93--96\% across all layers.
+In contrast to the global semantic results, here the F1 scores do not show a clear upward trend with increasing layer depth, but instead remains stable throughout.
 Moreover, no significant drop is observed in the final layers for FastVLM-0.5B, with both models performing nearly identically at each layer.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\linewidth]{figures/local/_combined_exp2/accuracy_lines_per_layer.png}
-    \caption{Accuracy per layer across all two models in category experiment.}
-    \label{fig:accuracy_per_layer_local}
+    \includegraphics[width=1\linewidth]{figures/local/_combined_exp2/f1_lines_per_layer.png}
+    \caption{F1 score per layer across all two models in category experiment.}
+    \label{fig:f1_per_layer_local}
 \end{figure}
 
 In Figure~\ref{fig:combined_metrics_per_layer_local}, we present a heatmap that summarizes the precision, recall, and F1 scores for the category experiment across all layers and models.
