@@ -145,7 +145,8 @@ def plot_classification_metrics(x, xticks_labels, accs, precs, recalls, f1s, sav
     plt.plot(x, precs, marker="o", label="Precision")
     plt.plot(x, recalls, marker="o", label="Recall")
     plt.plot(x, f1s, marker="o", label="F1")
-    plt.axhline(0.5, color="gray", linestyle="--", linewidth=1, label="Baseline (0.5)")
+    # Skipping to plot the baseline as the positive and negative categories are not balanced
+    plt.axhline(0.5, color="white", linestyle="--", linewidth=1, label="Baseline (0.5)")
     plt.xticks(x, xticks_labels, rotation=45, ha="right")
     plt.xlabel("Layer")
     plt.ylabel("Score")
@@ -285,7 +286,8 @@ def plot_accuracy_lines_per_layer(
     plt.figure(figsize=(fig_width, COMBINED_HEIGHT))
     for model_name, accs in model_to_accs.items():
         plt.plot(x, accs[:num_layers], marker="o", label=model_name)
-    plt.axhline(0.5, color="gray", linestyle="--", linewidth=1, label="Baseline (0.5)")
+    # Skipping to plot the baseline as the positive and negative categories are not balanced
+    plt.axhline(0.5, color="white", linestyle="--", linewidth=1, label="Baseline (0.5)")
     plt.xticks(x, layer_labels, rotation=45, ha="right")
     plt.xlabel("Layer")
     plt.ylabel("Accuracy")
@@ -458,6 +460,15 @@ if __name__ == "__main__":
             layer_labels=layer_labels_f1, model_to_f1s=model_to_f1s, model_to_precs=model_to_precs,
             model_to_recalls=model_to_recalls, save_path=combined_save, filename="combined_metrics_heatmap.png",
             title=r"Combined Metrics per Layer (F1-Score, Precision \& Recall)",
+        )
+
+        # Combined line plot for F1 Score
+        plot_accuracy_lines_per_layer(
+            layer_labels=layer_labels_f1,
+            model_to_accs=model_to_f1s,
+            save_path=combined_save,
+            filename="f1_lines_per_layer.png",
+            title="F1 per Layer across Models",
         )
     else:
         print("Skipping combined heatmap due to no data.")
