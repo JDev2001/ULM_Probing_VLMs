@@ -221,7 +221,7 @@ These metrics confirm the same pattern as the accuracy plot: both models achieve
 
 \section{Discussion}
 \subsection{Reflection on the Results}
-In relation to our central research question regarding whether small VLMs follow the same global–-local representational trends observed in larger models.
+In relation to our central research question regarding whether small VLMs follow the same global–-local representational trends observed in larger models. \cite{tao2024probingmultimodallargelanguage}
 Our findings reveal both convergences and divergences.\\
 
 In terms of global semantics, we find evidence of a consistent pattern.
@@ -231,7 +231,7 @@ FastVLM-0.5B demonstrates a sharp drop in performance at the final layers.
 By contrast, Qwen2-VL-2B maintains relatively constant performance into the later layers, without the same steep decline.\\
 
 In terms of local semantics, our findings suggest that local semantic information is represented in a consistent manner across different layers.
-Specifically, both the small-scale FastVLM-0.5B and the larger Qwen2-VL-2B encode object-level semantics in a highly linearly separable fashion throughout nearly all layers, with accuracies well above the baseline and only minor variation across depth.
+Specifically, both the small-scale FastVLM-0.5B and the larger Qwen2-VL-2B encode object-level semantics in a highly linearly separable fashion throughout nearly all layers, with high F1 scores and only minor variation across depth.
 Unlike larger VLMs show a clear improvement in local semantic encoding from early to mid layers. Our results show that small VLMs already capture local semantics at high fidelity from early layers.
 This may suggests that smaller VLMs may be saturating their ability to encode local semantics earlier in the architecture
 
