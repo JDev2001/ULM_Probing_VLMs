@@ -221,7 +221,7 @@ These metrics confirm the same pattern as the accuracy plot: both models achieve
 
 \section{Discussion}
 \subsection{Reflection on the Results}
-In relation to our central research question regarding whether small VLMs follow the same global–-local representational trends observed in larger models. \cite{tao2024probingmultimodallargelanguage}
+In relation to our central research question regarding whether small VLMs follow the same global–-local representational trends observed in larger models \cite{tao2024probingmultimodallargelanguage}.
 Our findings reveal both convergences and divergences.\\
 
 In terms of global semantics, we find evidence of a consistent pattern.
@@ -237,8 +237,8 @@ This may suggests that smaller VLMs may be saturating their ability to encode lo
 
 \subsection{Limitation of the Study}
 One of the limitations of our study concerns the way negative examples were constructed. We rely on random sampling to generate negative samples of captions and categories, without accounting for their semantic closeness to the correct choice.
-This contrasts with the approach emphasized in a study \cite{roesch2024EnhancingConceptualUnderstandinginMultimodal}, where the design of probing tasks highlights the importance of controlling for semantic difficulty.
-If negatives are too easy to the probes, layer-specific variation may be underestimated.
+A previous study \cite{roesch2024EnhancingConceptualUnderstandinginMultimodal} showed that using hard negatives enables models to encode subtler distinctions, leading to stronger fine-grained conceptual understanding.
+By analogy, when probing to uncover where such information is stored across layers, if the negatives are too easy, layer-specific variation may be underestimated.
 This may partly explain why our local semantic probes exhibited similar performance across layers as the distinctions of the classifiers may be flattened. \\
 
 Another limitation of our study lies in the choice of pooling strategy for sequence representations.
