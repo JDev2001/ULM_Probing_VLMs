@@ -226,9 +226,11 @@ Our findings reveal both convergences and divergences.\\
 
 In terms of global semantics, we find evidence of a consistent pattern.
 In smaller models, as in larger ones, intermediate layers encode stronger global semantics than very early layers.
-This is reflected in the improved performance of middle–later layers on the caption entailment probe. However, the dynamics toward the later layers diverge. Larger VLMs typically exhibit a clear intermediate-layer peak followed by a gradual decline in global information, whereas the small models behave less uniformly.
-FastVLM-0.5B demonstrates a sharp drop in performance at the final layers.
-By contrast, Qwen2-VL-2B maintains relatively constant performance into the later layers, without the same steep decline.\\
+This is reflected in the improved performance of middle–later layers on the caption entailment probe.
+In particular, both Qwen2-VL-2B and its larger counterpart Qwen2-VL-7B maintain relatively constant performance into the later layers, without an obvious decline.
+However, the dynamics toward the later layers of some other models diverge.
+Some larger VLMs (e.g. Kosmos-2 and LaVIT) exhibit gradual decline in global information after their peak in intermediate layers.
+Meanwhile, FastVLM-0.5B shows a different behavior, with a sharp drop in performance at the final layers.\\
 
 In terms of local semantics, our findings suggest that local semantic information is represented in a consistent manner across different layers.
 Specifically, both the small-scale FastVLM-0.5B and the larger Qwen2-VL-2B encode object-level semantics in a highly linearly separable fashion throughout nearly all layers, with high F1 scores and only minor variation across depth.
@@ -283,5 +285,19 @@ Furthermore Mixture-of-Experts (MoE) architectures \cite{lin2024MoELLaVA}, which
     \centering
     \includegraphics[width=1\linewidth]{figures/global/_combined_exp1/combined_training_progress_layer_1.png}
     \caption{A comparison of training and validation loss for the layer 1 probe (layer with lowest accuracy scores), analyzing model performance in the global caption experiment. Both models show no significant learning, with losses remaining high and stable across epochs. This indicates that the representations at this early layer do not contain sufficient information for the caption entailment task, leading to poor probe performance.}
+\end{figure}
+\end{document}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/local/_combined_exp2/combined_training_progress_layer_0.png}
+    \caption{A comparison of training and validation loss for the layer 0 probe (layer with best F1 scores), analyzing model performance in the local category experiment. Both models show most of their improvement within the first four to five epochs, after which the curves flatten. The Qwen2-VL-2B model (blue) achieves consistently slightly lower training and validation losses than the FastVLM-0.5B model (orange), reflecting its stronger performance overall.}
+\end{figure}
+\end{document}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/local/_combined_exp2/combined_training_progress_layer_24.png}
+    \caption{A comparison of training and validation loss for the layer 24 probe (layer with lowest F1 scores), analyzing model performance in the local category experiment. Both models show limited improvement after the initial epochs, with losses remaining relatively flat overall. The validation losses remain relatively low, indicating that this layer also carries useful information for the task. The FastVLM-0.5B model (orange) shows slightly higher and less stable losses compared to Qwen2-VL-2B (blue).}
 \end{figure}
 \end{document}
