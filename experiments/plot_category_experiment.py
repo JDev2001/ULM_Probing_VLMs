@@ -419,6 +419,31 @@ def create_plots(dir_path, save_path, split: str = "val_epoch") -> None:
         x, xticks_labels, data["tps"], data["fps"], data["fns"], data["tns"], save_path
     )
 
+def find_best_and_worst_layers(
+    base_dir: Path, model_dirs: list[str], model_names: list[str], split: str = "val_epoch"
+):
+    layer_labels, model_to_f1s = aggregate_model_metric(
+        base_dir=base_dir,
+        model_dirs=model_dirs,
+        model_names=model_names,
+        split=split,
+        metric_key="f1",
+    )
+
+    if not layer_labels or not model_to_f1s:
+        print("No F1 data found across models.")
+        return None, None
+
+    f1_matrix = np.array([model_to_f1s[m] for m in model_names])
+    mean_f1s = f1_matrix.mean(axis=0)
+
+    best_idx = int(np.nanargmax(mean_f1s))
+    worst_idx = int(np.nanargmin(mean_f1s))
+
+    best_layer = (layer_labels[best_idx], mean_f1s[best_idx])
+    worst_layer = (layer_labels[worst_idx], mean_f1s[worst_idx])
+
+    return best_layer, worst_layer
 
 if __name__ == "__main__":
     models = [
@@ -473,16 +498,27 @@ if __name__ == "__main__":
     else:
         print("Skipping combined heatmap due to no data.")
 
-    layer = 1
     print("\nGenerating combined training progress plot...")
-    progress_data = aggregate_model_training_progress(
-        base_dir=base_dir, model_dirs=models, model_names=model_names, layer=layer,
-    )
 
-    if progress_data:
-        plot_combined_training_progress(
-            progress_data=progress_data, save_path=combined_save, layer=layer,
+    best, worst = find_best_and_worst_layers(
+    base_dir=Path("artifacts"),
+    model_dirs=models,
+    model_names=model_names,
+    split="val_epoch"
+    )
+    print("Best Layer (avg F1 across models):", best)
+    print("Worst Layer (avg F1 across models):", worst)
+
+    print("\nGenerating combined training progress plot...")
+    for layer in [int(best[0]), int(worst[0])]:
+        progress_data = aggregate_model_training_progress(
+            base_dir=base_dir, model_dirs=models, model_names=model_names, layer=layer,
         )
-        print(f"Combined training plot saved for layer {layer}.")
-    else:
-        print("Skipping combined training progress plot due to no data.")
+
+        if progress_data:
+            plot_combined_training_progress(
+                progress_data=progress_data, save_path=combined_save, layer=layer,
+            )
+            print(f"Combined training plot saved for layer {layer}.")
+        else:
+            print("Skipping combined training progress plot due to no data.")
