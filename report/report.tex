@@ -79,7 +79,7 @@ Our experiments provide insight into how current compact VLMs encode global and 
 \section{Methods}
 
 \subsection{Models}
-We developed a probing framework for three compact vision--language models:
+We developed a probing framework for two compact vision--language models:
 \textbf{Qwen2-VL-2B} \cite{qwen2vl2024} and \textbf{FastVLM-0.5B} \cite{fastvlm2025}.
 All models were used in frozen form, i.e., without updating their parameters,
 so that only lightweight probing classifiers were trained on top of their internal
@@ -94,7 +94,7 @@ For this task, inputs are constructed using the prompt
 \begin{quote}
 \texttt{This image contains: \{caption\}. Is this right?}
 \end{quote}
-and the probe performs binary classification of whether the caption correctly describes the image. Due to limited computational resources, we just use one positve and one negative caption per image in contrast to \cite{tao2024probingmultimodallargelanguage}.
+and the probe performs binary classification of whether the caption correctly describes the image. Due to limited computational resources, we just use one positive and one negative caption per image in contrast to \cite{tao2024probingmultimodallargelanguage}.
 We consider a set of images $M$ with associated ground-truth captions $C$
 and a set of randomly sampled negative captions $C'$.
 For each image $m \in M$, we select one positive caption $c^+(m) \in C$
@@ -110,7 +110,7 @@ f : D \;\rightarrow\; \{0,1\},
 with $f(m, c^+(m)) = 1$ and $f(m, c^-(m)) = 0$.
 The \emph{category experiment} focuses on local features by probing whether the model
 can identify the presence of specific objects. For this task, 2 different versions of prompt have been tried out in the experiment.
-Initially, the prompt take the form
+Initially, the prompt takes the form
 \begin{quote}
 \texttt{This image contains the following types of object: \{categories\}}
 \end{quote}
@@ -127,7 +127,7 @@ f : M \;\rightarrow\; \{0,1\} ^{|\mathcal{K}|},
 such that for an image $m$, the prediction $f(m)$ is a binary vector whose positive entries correspond to the categories in $K(m)$.
 Both tasks are based on the MS~COCO dataset \cite{lin2014microsoft}, which provides annotations
 for images, including captions for each image. We created
-training and evaluation splits. Due to limited computational resources, we restrict our analysis to a random subset of 20.000 images for the training set and 2.000 images for the evaluation set in both experiments.
+training and evaluation splits. Due to limited computational resources, we restrict our analysis to a random subset of 20,000 images for the training set and 2,000 images for the evaluation set in both experiments.
 
 
 
@@ -151,7 +151,7 @@ representations to task labels. For both experiments, we use a simple linear
 projection with dropout regularization, optimized with Adam and cross-entropy loss.
 The caption experiment is framed as binary classification, while the category experiment
 is treated as multi-label prediction with label and mask vectors indicating valid
-categories for each image. A set of 3 valid categories are used for the category experiment.
+categories for each image. A set of 3 valid categories are sampled from each image for the category experiment
 It typically consists of 1-2 positive categories and randomly sampled negative categories,
 ensuring a balanced ratio of both. All probes are trained independently per layer, which allows
 us to quantify how well each layer captures global or local semantic information.
@@ -175,24 +175,24 @@ models of different architectures and scales.
 To evaluate the performance of the probing classifiers across different layers
 and models, we generated a series of plots that visualize key metrics.
 For the caption experiment, which focuses on global semantic features, the accuracy per layer
-across all three models is shown in Figure~\ref{fig:accuracy_per_layer}.
+across both models is shown in Figure~\ref{fig:accuracy_per_layer}.
 Thus the positive and negative examples are balanced, a random baseline would achieve 50\% accuracy.
-We can see that both probes show a similar evulution in accurancy over the most layers, with Qwen2-VL-2B performing slightly better than FastVLM-0.5B.
+We can see that both probes show a similar evaluation in accuracy over the most layers, with Qwen2-VL-2B performing slightly better than FastVLM-0.5B.
 The accurancy increases from the first towards the later layers.
 Interestingly, the accurancy of FastVLM-0.5B drops significantly in the last layers, while it remains relatively stable for Qwen2-VL-2B.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{figures/global/_combined_exp1/accuracy_lines_per_layer.png}
-    \caption{Accuracy per layer across all three models.}
+    \caption{Accuracy per layer across the two models.}
     \label{fig:accuracy_per_layer}
 \end{figure}
-In \ref{fig:combined_metrics_per_layer}, we present a heatmap that summarizes the precision, recall, and F1 scores for the caption experiment across all layers and models.
-Here we can also observe a similar trend as for the accuracy. The scores are increases from the first towards the later layers and FastVLM-0.5B shows a significant drop in the last layers.
+In Figure \ref{fig:combined_metrics_per_layer}, we present a heatmap that summarizes the precision, recall, and F1 scores for the caption experiment across all layers and models.
+Here we can also observe a similar trend as for the accuracy. The scores increase from the first towards the later layers and FastVLM-0.5B shows a significant drop in the last layers.
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{figures/global/_combined_exp1/combined_metrics_heatmap.png}
-    \caption{Precision, Recall and F1 per layer across all three models.}
+    \caption{Precision, Recall and F1 per layer across the two models.}
     \label{fig:combined_metrics_per_layer}
 \end{figure}
 
@@ -260,7 +260,7 @@ More fine-grained semantic representations, such as relational, compositional, a
 Beyond relatively more literal and structural dimensions of meaning covered in this study, another potential direction is to investigate how VLMs handle deeper or more abstract forms of knowledge.
 For example, in the perspective of combinational creativity \cite{peng2025ProbingandInducingCombinationalCreativity}, it would be insightful to investigate the models' ability to interpret novel combinations of familiar concepts. Such extensions would provide a richer picture of the models’ capabilities in generalization. \\
 
-While our investigation has yielded useful insights using Qwen2-VL-2B-Instruct and FastVLM-0.5B, the architectural diversity in our models is still quite limited.
+While our investigation has yielded useful insights using Qwen2-VL-2B and FastVLM-0.5B, the architectural diversity in our models is still quite limited.
 To more fully understand where and how information is stored or lost across vision-language models, future work should extend this probing to a broader set of VLM architectures.
 For example, models under the architecture Encoder–decoder cross-modal fusion like BLIP-2 \cite{li2023BLIP2}, which integrate vision and language through deeper cross-attention layers, may preserve global and local semantic information differently.
 Furthermore Mixture-of-Experts (MoE) architectures \cite{lin2024MoELLaVA}, which route information dynamically, may distribute semantic content in another way.
