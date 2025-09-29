@@ -29,6 +29,6 @@ This projects implements a probing pipeline with the mscoco-Dataset for differen
 - In theory all models with AutoProcessor & AutoModelForCausalLM sould be supported (not guaranteed)
 
 ### Use pre-computed representations:
-- Download: https://drive.google.com/file/d/1be1lYHalyIPY35LsEXKtpvcn1krWV5Xh/
+- Download: https://drive.google.com/file/d/1iS9J3Jp43zL4-3_rk7biYoFmwJ80W8Rp/
 - Extract them to artifcats/repr and artifcats/labels
 - Set the Flag: "USE_OFFLINE_REPR = True" in the experiment python file
