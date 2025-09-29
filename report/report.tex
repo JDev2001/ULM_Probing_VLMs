@@ -216,21 +216,19 @@ These metrics confirm the same pattern as the accuracy plot: both models achieve
 
 \section{Discussion}
 \subsection{Reflection on the Results}
-In relation to our central research question regarding whether small VLMs follow the same global–local representational trends observed in larger models \cite{tao2024probingmultimodallargelanguage},
-our findings reveal both convergences and divergences.\\
-In terms of global semantics, we find evidence of a consistent pattern.
+In relation to our central research question of whether small VLMs follow the same global–local representational trends observed in larger models \cite{tao2024probingmultimodallargelanguage}, our findings reveal both convergences and divergences.\
+Regarding global semantics, we find evidence of a consistent pattern.
 In smaller models, as in larger ones, intermediate layers encode stronger global semantics than very early layers.
 This is reflected in the improved performance of middle–later layers on the caption entailment probe.
-In particular, both Qwen2-VL-2B and its larger counterpart Qwen2-VL-7B maintain relatively constant performance into the later layers, without an obvious decline.
-However, the dynamics toward the later layers of some other models diverge.
-Older VLMs like Kosmos-2 and LaVIT exhibit gradual decline in global information after their peak in intermediate layers.
-Meanwhile, FastVLM-0.5B shows a different behavior, with a sharp drop in performance at the final layers.
-One possible explanation for the difference between Qwen2-VL-2B and FastVLM-0.5B is that later layers become increasingly specialized for immediate next-token prediction rather than maintaining a global representation.
-Smaller models may be forced to prioritize the next-token objective, while larger models have sufficient capacity to preserve both next-token predictive power and global context representations.\\
-In terms of local semantics, our findings suggest that local semantic information is represented in a consistent manner across different layers.
+Older vision models such as Kosmos-2 and LaVIT exhibit a gradual decline in global information after their peak in intermediate layers \cite{tao2024probingmultimodallargelanguage}.
+FastVLM-0.5B shows a similar behavior, with a sharp drop in performance in the final layers, while Qwen2-VL-2B remains relatively stable.
+One possible explanation for this difference is that smaller models become increasingly specialized for immediate next-token prediction rather than maintaining a global representation.
+Smaller models may be forced to prioritize the next-token objective, while larger models have sufficient capacity to preserve both next-token predictive power and global contextual representations.\\
+With respect to local semantics, our findings suggest that local semantic information is represented consistently across layers.
 Specifically, both the small-scale FastVLM-0.5B and the larger Qwen2-VL-2B encode object-level semantics in a highly linearly separable fashion throughout nearly all layers, with high F1 scores and only minor variation across depth.
-Unlike larger VLMs show a clear improvement in local semantic encoding from early to mid layers. Our results show that small VLMs already capture local semantics at high fidelity from early layers.
-This may suggest that smaller VLMs may be saturating their ability to encode local semantics earlier in the architecture
+Whereas \cite{tao2024probingmultimodallargelanguage} reported a clear improvement in local semantic encoding from early to mid layers, our results show that small VLMs already capture local semantics with high fidelity from early layers.
+This could indicate that our task design was too simple.
+It might also suggest that smaller VLMs saturate their ability to encode simple local semantics earlier in the architecture.
 
 \subsection{Limitation of the Study}
 One of the limitations of our study concerns the way negative examples were constructed. We rely on random sampling to generate negative samples of captions and categories, without accounting for their semantic closeness to the correct choice.
