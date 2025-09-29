@@ -94,7 +94,7 @@ For this task, inputs are constructed using the prompt
 \begin{quote}
 \texttt{This image contains: \{caption\}. Is this right?}
 \end{quote}
-and the probe performs binary classification of whether the caption correctly describes the image. Due to limited computational resources, we just use one positive and one negative caption per image in contrast to \cite{tao2024probingmultimodallargelanguage}.
+and the probe performs binary classification of whether the caption correctly describes the image. Due to limited computational resources, we only use one positive and one negative caption per image in contrast to \cite{tao2024probingmultimodallargelanguage}.
 We consider a set of images $M$ with associated ground-truth captions $C$
 and a set of randomly sampled negative captions $C'$.
 For each image $m \in M$, we select one positive caption $c^+(m) \in C$
@@ -109,14 +109,14 @@ f : D \;\rightarrow\; \{0,1\},
 \]
 with $f(m, c^+(m)) = 1$ and $f(m, c^-(m)) = 0$.
 The \emph{category experiment} focuses on local features by probing whether the model
-can identify the presence of specific objects. For this task, 2 different versions of prompt have been tried out in the experiment.
+can identify the presence of specific objects. For this task, 2 different versions of prompt were tested in the experiment.
 Initially, the prompt takes the form
 \begin{quote}
-\texttt{This image contains the following types of object: \{categories\}}
+\texttt{This image contains the following types of objects: \{categories\}}
 \end{quote}
 After reviewing the preliminary results, a prompt without the list of the object categories is implemented to prevent data leakage.
 \begin{quote}
-\texttt{This image contains the following types of object: }
+\texttt{This image contains the following types of objects: }
 \end{quote}
 and the probe must predict the existence of each category in the image. $\mathcal{K}$ denotes the set of object categories, and for each image $m \in M$,
 the subset $K(m) \subseteq \mathcal{K}$ specifies the categories present in $m$.
@@ -151,7 +151,7 @@ representations to task labels. For both experiments, we use a simple linear
 projection with dropout regularization, optimized with Adam and cross-entropy loss.
 The caption experiment is framed as binary classification, while the category experiment
 is treated as multi-label prediction with label and mask vectors indicating valid
-categories for each image. A set of 3 valid categories are sampled from each image for the category experiment
+categories for each image. A set of 3 valid categories is sampled from each image for the category experiment
 It typically consists of 1-2 positive categories and randomly sampled negative categories,
 ensuring a balanced ratio of both. All probes are trained independently per layer, which allows
 us to quantify how well each layer captures global or local semantic information.
@@ -176,10 +176,10 @@ To evaluate the performance of the probing classifiers across different layers
 and models, we generated a series of plots that visualize key metrics.
 For the caption experiment, which focuses on global semantic features, the accuracy per layer
 across both models is shown in Figure~\ref{fig:accuracy_per_layer}.
-Thus the positive and negative examples are balanced, a random baseline would achieve 50\% accuracy.
+Since the positive and negative examples are balanced, a random baseline would achieve 50\% accuracy.
 We can see that both probes show a similar evaluation in accuracy over the most layers, with Qwen2-VL-2B performing slightly better than FastVLM-0.5B.
-The accurancy increases from the first towards the later layers.
-Interestingly, the accurancy of FastVLM-0.5B drops significantly in the last layers, while it remains relatively stable for Qwen2-VL-2B.
+The accuracy increases from the first towards the later layers.
+Interestingly, the accuracy of FastVLM-0.5B drops significantly in the last layers, while it remains relatively stable for Qwen2-VL-2B.
 
 \begin{figure}[H]
     \centering
@@ -187,7 +187,7 @@ Interestingly, the accurancy of FastVLM-0.5B drops significantly in the last lay
     \caption{Accuracy per layer across the two models.}
     \label{fig:accuracy_per_layer}
 \end{figure}
-In Figure \ref{fig:combined_metrics_per_layer}, we present a heatmap that summarizes the precision, recall, and F1 scores for the caption experiment across all layers and models.
+\noindent In Figure \ref{fig:combined_metrics_per_layer}, we present a heatmap that summarizes the precision, recall, and F1 scores for the caption experiment across all layers and models.
 Here we can also observe a similar trend as for the accuracy. The scores increase from the first towards the later layers and FastVLM-0.5B shows a significant drop in the last layers.
 \begin{figure}[H]
     \centering
@@ -195,20 +195,17 @@ Here we can also observe a similar trend as for the accuracy. The scores increas
     \caption{Precision, Recall and F1 per layer across the two models.}
     \label{fig:combined_metrics_per_layer}
 \end{figure}
-
-For the category experiment on local semantics, the F1 score per layer across the two models is shown in Figure~\ref{fig:f1_per_layer_local}.
+\noindent For the category experiment on local semantics, the F1 score per layer across the two models is shown in Figure~\ref{fig:f1_per_layer_local}.
 We can see that both Qwen2-VL-2B and FastVLM-0.5B maintain a consistently high F1 scores of around 93--96\% across all layers.
-In contrast to the global semantic results, here the F1 scores do not show a clear upward trend with increasing layer depth, but instead remains stable throughout.
+In contrast to the global semantic results, the F1 scores here do not show a clear upward trend with increasing layer depth, but instead remains stable throughout.
 Moreover, no significant drop is observed in the final layers for FastVLM-0.5B, with both models performing nearly identically at each layer.
-
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{figures/local/_combined_exp2/f1_lines_per_layer.png}
     \caption{F1 score per layer across all two models in category experiment.}
     \label{fig:f1_per_layer_local}
 \end{figure}
-
-In Figure~\ref{fig:combined_metrics_per_layer_local}, we present a heatmap that summarizes the precision, recall, and F1 scores for the category experiment across all layers and models.
+\noindent In Figure~\ref{fig:combined_metrics_per_layer_local}, we present a heatmap that summarizes the precision, recall, and F1 scores for the category experiment across all layers and models.
 These metrics confirm the same pattern as the accuracy plot: both models achieve consistently high precision and recall (around 0.94 to 0.97) across all layers, leading to stable F1 scores close to 0.95.
 
 \begin{figure}[H]
@@ -223,7 +220,6 @@ These metrics confirm the same pattern as the accuracy plot: both models achieve
 \subsection{Reflection on the Results}
 In relation to our central research question regarding whether small VLMs follow the same global–local representational trends observed in larger models \cite{tao2024probingmultimodallargelanguage},
 our findings reveal both convergences and divergences.\\
-
 In terms of global semantics, we find evidence of a consistent pattern.
 In smaller models, as in larger ones, intermediate layers encode stronger global semantics than very early layers.
 This is reflected in the improved performance of middle–later layers on the caption entailment probe.
@@ -231,13 +227,12 @@ In particular, both Qwen2-VL-2B and its larger counterpart Qwen2-VL-7B maintain 
 However, the dynamics toward the later layers of some other models diverge.
 Some larger VLMs (e.g. Kosmos-2 and LaVIT) exhibit gradual decline in global information after their peak in intermediate layers.
 Meanwhile, FastVLM-0.5B shows a different behavior, with a sharp drop in performance at the final layers.
-One possible explanation for the difference between Qwen2-VL-2B and FastVLM-0.5B is that later layers become increasingly specialized for immediate next-token prediction rather than maintaining a global representation. 
+One possible explanation for the difference between Qwen2-VL-2B and FastVLM-0.5B is that later layers become increasingly specialized for immediate next-token prediction rather than maintaining a global representation.
 Smaller models may be forced to prioritize the next-token objective, while larger models have sufficient capacity to preserve both next-token predictive power and global context representations.\\
-
 In terms of local semantics, our findings suggest that local semantic information is represented in a consistent manner across different layers.
 Specifically, both the small-scale FastVLM-0.5B and the larger Qwen2-VL-2B encode object-level semantics in a highly linearly separable fashion throughout nearly all layers, with high F1 scores and only minor variation across depth.
 Unlike larger VLMs show a clear improvement in local semantic encoding from early to mid layers. Our results show that small VLMs already capture local semantics at high fidelity from early layers.
-This may suggests that smaller VLMs may be saturating their ability to encode local semantics earlier in the architecture
+This may suggest that smaller VLMs may be saturating their ability to encode local semantics earlier in the architecture
 
 \subsection{Limitation of the Study}
 One of the limitations of our study concerns the way negative examples were constructed. We rely on random sampling to generate negative samples of captions and categories, without accounting for their semantic closeness to the correct choice.
@@ -261,11 +256,10 @@ Future studies could explore a wider taxonomy of knowledge types.
 More fine-grained semantic representations, such as relational, compositional, and contextual understanding, as examined in recent probing approaches \cite{schiappa2023ProbingConceptualUnderstanding} can be explored.
 Beyond relatively more literal and structural dimensions of meaning covered in this study, another potential direction is to investigate how VLMs handle deeper or more abstract forms of knowledge.
 For example, in the perspective of combinational creativity \cite{peng2025ProbingandInducingCombinationalCreativity}, it would be insightful to investigate the models' ability to interpret novel combinations of familiar concepts. Such extensions would provide a richer picture of the models’ capabilities in generalization. \\
-
 While our investigation has yielded useful insights using Qwen2-VL-2B and FastVLM-0.5B, the architectural diversity in our models is still quite limited.
 To more fully understand where and how information is stored or lost across vision-language models, future work should extend this probing to a broader set of VLM architectures.
 For example, models under the architecture Encoder–decoder cross-modal fusion like BLIP-2 \cite{li2023BLIP2}, which integrate vision and language through deeper cross-attention layers, may preserve global and local semantic information differently.
-Furthermore Mixture-of-Experts (MoE) architectures \cite{lin2024MoELLaVA}, which route information dynamically, may distribute semantic content in another way.
+Furthermore, Mixture-of-Experts (MoE) architectures \cite{lin2024MoELLaVA}, which route information dynamically, may distribute semantic content in another way.
 
 
 \section{Conclusion}
@@ -282,7 +276,7 @@ Conversely, for local semantics, probed via an object category recognition task,
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{figures/global/_combined_exp1/combined_training_progress_layer_15.png}
-    \caption{A comparison of training and validation loss for the layer 15 probe (layer with best accuracy scores), analyzing model performance in the global caption experiment. The Qwen2-VL-2B model (blue) demonstrates a significantly lower and more stable loss than the FastVLM-0.5B model (orange). The small gap between the training (solid) and validation (dashed) curves for the Qwen2 model suggests robust training with no signs of overfitting. Moreover we can see that the strongest learning happens in the first 2 epochs.}
+    \caption{A comparison of training and validation loss for the layer 15 probe (layer with best accuracy scores), analyzing model performance in the global caption experiment. The Qwen2-VL-2B model (blue) demonstrates a significantly lower and more stable loss than the FastVLM-0.5B model (orange). The small gap between the training (solid) and validation (dashed) curves for the Qwen2 model suggests robust training with no signs of overfitting. Moreover, we can see that the strongest learning happens in the first 2 epochs.}
 \end{figure}
 
 \begin{figure}[H]
@@ -304,4 +298,3 @@ Conversely, for local semantics, probed via an object category recognition task,
 \end{figure}
 
 \end{document}
-
