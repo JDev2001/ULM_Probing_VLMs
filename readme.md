@@ -30,4 +30,5 @@ This projects implements a probing pipeline with the mscoco-Dataset for differen
 
 ### Use pre-computed representations:
 - Download: https://drive.google.com/file/d/1be1lYHalyIPY35LsEXKtpvcn1krWV5Xh/
-- Extract them to artifcats/repr
+- Extract them to artifcats/repr and artifcats/labels
+- Set the Flag: "USE_OFFLINE_REPR = True" in the experiment python file
