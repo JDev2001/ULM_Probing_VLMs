@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-# FastVLMProbe with fully in-class pre-materialization (no external API change).
-# - Mirrors the Qwen2-VL wrapper's public API and behavior.
-# - Adapts tokenization & vision path for apple/FastVLM-0.5B (<image> splice + IMAGE_TOKEN_INDEX).
-# - English identifiers, English comments, UTF-8.
-
 from typing import Dict, List, Optional, Tuple, Union
 import time
 import torch

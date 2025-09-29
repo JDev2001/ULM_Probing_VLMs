@@ -1,9 +1,5 @@
+# Inspired by: https://github.com/jammastergirish/LLMProbe
 
-# -*- coding: utf-8 -*-
-# QwenVLProbe with fully in-class pre-materialization (no API change).
-# - Automatically pre-downloads/processes vision inputs in parallel on first call.
-# - Keeps the same public interface: __init__ and get_hidden_states_batched(...).
-# - English identifiers, English comments, UTF-8.
 
 from typing import Dict, List, Optional, Tuple, Union
 import math
@@ -110,7 +106,6 @@ class QwenVLProbe(VLLM):
         inputs = {k: v.to(self.device, non_blocking=True) if hasattr(v, "to") else v for k, v in inputs.items()}
         return inputs, batch_labels
 
-    # --------------------------- Public API (unchanged) ---------------------------
 
     @torch.inference_mode()
     def get_hidden_states_batched(
@@ -133,13 +128,13 @@ class QwenVLProbe(VLLM):
           - {"text": "...", "label": int}      # text-only convenience
         """
 
-        # Step 1: Pre-materialize (only once per call; no API change)
+        # Pre-materialize (only once per call; no API change)
         examples = _prematerialize_examples_inline(examples,self.processor)
 
         all_hidden_states: List[torch.Tensor] = []
         all_labels: List[int] = []
 
-        # Step 2: Iterate in batches (hot path: GPU-bound only)
+        # Iterate in batches (hot path: GPU-bound only)
         for batch_start in tqdm(range(0, len(examples), batch_size), desc="Batches", leave=False):
             batch_end = min(batch_start + batch_size, len(examples))
             batch = examples[batch_start:batch_end]

@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
-# FastVLMProbe with fully in-class pre-materialization (no external API change).
-# - Mirrors the Qwen2-VL wrapper's public API and behavior.
-# - Adapts tokenization & vision path for apple/FastVLM-0.5B (<image> splice + IMAGE_TOKEN_INDEX).
-# - English identifiers, English comments, UTF-8.
+# Inspired by: https://github.com/jammastergirish/LLMProbe
+
 
 from typing import Dict, List, Optional, Tuple, Union
 import time
@@ -114,7 +111,7 @@ class FastVLM(VLLM):
         (either all have an image or none have an image).
         """
         device = self.model.device
-        # 1) Tokenize with proper splicing
+        # Tokenize with proper splicing
         ids_list: List[torch.Tensor] = []
         has_image_list: List[bool] = []
 
@@ -125,7 +122,7 @@ class FastVLM(VLLM):
             ids_list.append(ids)
             has_image_list.append(has_img)
 
-        # 2) Left-pad to longest (or right-pad; consistent padding is fine since we build attention_mask)
+        # Left-pad to longest (or right-pad; consistent padding is fine since we build attention_mask)
         max_len = max(t.size(0) for t in ids_list) if ids_list else 1
         pad_id = int(self.tokenizer.pad_token_id)
         input_ids = torch.full((len(ids_list), max_len), pad_id, dtype=ids_list[0].dtype)
@@ -136,7 +133,7 @@ class FastVLM(VLLM):
         input_ids = input_ids.to(device)
         attention_mask = attention_mask.to(device)
 
-        # 3) Build images tensor if any
+        # Build images tensor if any
         if any(has_image_list):
             # FastVLM uses its own image processor from the vision tower
             vision_proc = self.model.get_vision_tower().image_processor
@@ -146,8 +143,6 @@ class FastVLM(VLLM):
                 imgs = ex.get("_pre_images", [])
                 pil_list.append(imgs[0] if imgs else None)
 
-            # Replace missing images with a tiny blank to keep batch shape consistent
-            # (Model won't attend to it meaningfully without IMAGE token.)
             blank = Image.new("RGB", (2, 2), (255, 255, 255))
             pil_list = [img if img is not None else blank for img in pil_list]
 
@@ -158,11 +153,7 @@ class FastVLM(VLLM):
 
         return input_ids, attention_mask, px
 
-    # --------------------------- Pooling ---------------------------
 
-
-
-    # --------------------------- Public API (unchanged) ---------------------------
 
     @torch.inference_mode()
     def get_hidden_states_batched(
@@ -184,10 +175,10 @@ class FastVLM(VLLM):
           - {"messages": [...], "label": int}  # multimodal (preferred; expects one <image>)
           - {"text": "...", "label": int}      # text-only convenience
         """
-        # Step 1: Pre-materialize
+        # Pre-materialize
         examples = _prematerialize_examples_inline(examples, self.tokenizer,"fast_vlm")
 
-        # Step 2: Iterate in batches; within each batch, split by image presence to satisfy FastVLM's images= tensor
+        # Iterate in batches; within each batch, split by image presence to satisfy FastVLM's images= tensor
         all_hidden_states: List[torch.Tensor] = []
         all_labels: List[int] = []
 

@@ -2,7 +2,6 @@
 
 
 
-# -*- coding: utf-8 -*-
 # Optimized drop-in replacement keeping the same public interface.
 # Key improvements:
 # - In-class pre-materialization: downloads/processes images & chat templates once (parallel), zero I/O in hot path.
