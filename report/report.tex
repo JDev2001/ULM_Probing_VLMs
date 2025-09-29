@@ -196,7 +196,7 @@ Here we can also observe a similar trend as for the accuracy. The scores increas
     \label{fig:combined_metrics_per_layer}
 \end{figure}
 
-For the category experiment on local semantics, the accuracy per layer across the two models is shown in Figure~\ref{fig:f1_per_layer_local}.
+For the category experiment on local semantics, the F1 score per layer across the two models is shown in Figure~\ref{fig:f1_per_layer_local}.
 We can see that both Qwen2-VL-2B and FastVLM-0.5B maintain a consistently high F1 scores of around 93--96\% across all layers.
 In contrast to the global semantic results, here the F1 scores do not show a clear upward trend with increasing layer depth, but instead remains stable throughout.
 Moreover, no significant drop is observed in the final layers for FastVLM-0.5B, with both models performing nearly identically at each layer.
@@ -221,8 +221,8 @@ These metrics confirm the same pattern as the accuracy plot: both models achieve
 
 \section{Discussion}
 \subsection{Reflection on the Results}
-In relation to our central research question regarding whether small VLMs follow the same global–-local representational trends observed in larger models \cite{tao2024probingmultimodallargelanguage}.
-Our findings reveal both convergences and divergences.\\
+In relation to our central research question regarding whether small VLMs follow the same global–local representational trends observed in larger models \cite{tao2024probingmultimodallargelanguage},
+our findings reveal both convergences and divergences.\\
 
 In terms of global semantics, we find evidence of a consistent pattern.
 In smaller models, as in larger ones, intermediate layers encode stronger global semantics than very early layers.
@@ -230,7 +230,9 @@ This is reflected in the improved performance of middle–later layers on the ca
 In particular, both Qwen2-VL-2B and its larger counterpart Qwen2-VL-7B maintain relatively constant performance into the later layers, without an obvious decline.
 However, the dynamics toward the later layers of some other models diverge.
 Some larger VLMs (e.g. Kosmos-2 and LaVIT) exhibit gradual decline in global information after their peak in intermediate layers.
-Meanwhile, FastVLM-0.5B shows a different behavior, with a sharp drop in performance at the final layers.\\
+Meanwhile, FastVLM-0.5B shows a different behavior, with a sharp drop in performance at the final layers.
+One possible explanation for the difference between Qwen2-VL-2B and FastVLM-0.5B is that later layers become increasingly specialized for immediate next-token prediction rather than maintaining a global representation. 
+Smaller models may be forced to prioritize the next-token objective, while larger models have sufficient capacity to preserve both next-token predictive power and global context representations.\\
 
 In terms of local semantics, our findings suggest that local semantic information is represented in a consistent manner across different layers.
 Specifically, both the small-scale FastVLM-0.5B and the larger Qwen2-VL-2B encode object-level semantics in a highly linearly separable fashion throughout nearly all layers, with high F1 scores and only minor variation across depth.
@@ -302,3 +304,4 @@ Conversely, for local semantics, probed via an object category recognition task,
 \end{figure}
 
 \end{document}
+
