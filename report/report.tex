@@ -190,7 +190,7 @@ Here we can also observe a similar trend as for the accuracy. The scores increas
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{figures/global/_combined_exp1/combined_metrics_heatmap.png}
-    \caption{Precision, Recall and F1 per layer across the two models.}
+    \caption{Precision, Recall and F1 score per layer across the two models.}
     \label{fig:combined_metrics_per_layer}
 \end{figure}
 \noindent For the category experiment on local semantics, the F1 score per layer across the two models is shown in Figure~\ref{fig:f1_per_layer_local}.
@@ -204,7 +204,7 @@ Moreover, no significant drop is observed in the final layers for FastVLM-0.5B, 
     \label{fig:f1_per_layer_local}
 \end{figure}
 \noindent In Figure~\ref{fig:combined_metrics_per_layer_local}, we present a heatmap that summarizes the precision, recall, and F1 scores for the category experiment across all layers and models.
-These metrics confirm the same pattern as the accuracy plot: both models achieve consistently high precision and recall (around 0.94 to 0.97) across all layers, leading to stable F1 scores close to 0.95.
+These metrics confirm the same pattern as the accuracy plot: both models achieve consistently high precision and recall (around 94\% to 97\%) across all layers, leading to stable F1 scores close to 95\%.
 
 \begin{figure}[H]
     \centering
@@ -238,7 +238,7 @@ This may partly explain why our local semantic probes exhibited similar performa
 Another limitation of our study lies in the choice of pooling strategy for sequence representations.
 We applied mean pooling across valid tokens to obtain a single vector representation of the input. This approach implicitly treats all tokens as equally informative.
 Prior work \cite{tang2024PoolingAndAttention} has shown that different pooling methods like taking the hidden state of the final token can yield different insights. Exploring alternative pooling strategies and comparing them systematically may provide a more nuanced view of how VLMs distribute information across layers. \\
-Due to computational limits, our probing experiments were restricted to 20k training and 2k evaluation samples from MS COCO.
+Due to computational limits, our probing experiments were restricted to 20,000 training and 2,000 evaluation samples from MS COCO.
 In addition, coverage of semantics variation would be a potential issue.
 In particular, only 40 object types have been chosen for the probes in local semantics.
 This reduced variation means probes might overestimate how well a model captures the information.
