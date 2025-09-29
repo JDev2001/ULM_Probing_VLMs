@@ -109,12 +109,12 @@ f : D \;\rightarrow\; \{0,1\},
 \]
 with $f(m, c^+(m)) = 1$ and $f(m, c^-(m)) = 0$.
 The \emph{category experiment} focuses on local features by probing whether the model
-can identify the presence of specific objects. For this task, 2 different versions of prompt were tested in the experiment.
+can identify the presence of specific objects. For this task, 2 different versions of prompts were tested in the experiment.
 Initially, the prompt takes the form
 \begin{quote}
 \texttt{This image contains the following types of objects: \{categories\}}
 \end{quote}
-After reviewing the preliminary results, a prompt without the list of the object categories is implemented to prevent data leakage.
+After reviewing the preliminary results, a prompt without the list of the object categories is implemented to prevent data leakage
 \begin{quote}
 \texttt{This image contains the following types of objects: }
 \end{quote}
@@ -125,6 +125,8 @@ The probing task amounts to learning a classifier
 f : M \;\rightarrow\; \{0,1\} ^{|\mathcal{K}|},
 \]
 such that for an image $m$, the prediction $f(m)$ is a binary vector whose positive entries correspond to the categories in $K(m)$.
+For this experiment a set of 40 categories is considered, including common occurring objects in the dataset like \textit{person}, \textit{car}, \textit{dog}, and \textit{bottle}.
+For each positive category in $K(m)$, a negative category is randomly sampled from $\mathcal{K} \setminus K(m)$. Images without positive categories are excluded.
 Both tasks are based on the MS~COCO dataset \cite{lin2014microsoft}, which provides annotations
 for images, including captions for each image. We created
 training and evaluation splits. Due to limited computational resources, we restrict our analysis to a random subset of 20,000 images for the training set and 2,000 images for the evaluation set in both experiments.
@@ -151,18 +153,14 @@ representations to task labels. For both experiments, we use a simple linear
 projection with dropout regularization, optimized with Adam and cross-entropy loss.
 The caption experiment is framed as binary classification, while the category experiment
 is treated as multi-label prediction with label and mask vectors indicating valid
-categories for each image. A set of 3 valid categories is sampled from each image for the category experiment
-It typically consists of 1-2 positive categories and randomly sampled negative categories,
-ensuring a balanced ratio of both. All probes are trained independently per layer, which allows
+categories for each image. All probes are trained independently per layer, which allows
 us to quantify how well each layer captures global or local semantic information.
-Our trainer additionally computes detailed evaluation metrics, including accuracy for
-caption entailment and macro-averaged F1, precision, recall, and confusion matrix
-statistics for category recognition.
+Our trainer additionally computes detailed evaluation metrics, including accuracy, macro-averaged F1, precision, recall, and confusion matrix
+statistics.
 
 \subsection{Experimental Workflow}
 In both experiments, the workflow follows the same high-level structure.
-Datasets are preprocessed and split into training and evaluation sets, with
-balanced numbers of positive and negative instances. The target model is then
+Datasets are preprocessed and split into training and evaluation sets. The target model is then
 loaded, and representations are computed for all inputs. Probing classifiers are subsequently trained
 and evaluated for each layer. After finishing one model, GPU memory is released
 and the next model is processed in the same way. The probing results across
